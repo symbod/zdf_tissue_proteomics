@@ -99,13 +99,6 @@ for fc in FC_THRESHOLDS:
                 N = len(sig_pathways)
                 k = len(overlap_sig)
 
-                assert len(sig_pathways) == N, (
-                    f"{comp_key}/{set_dir}: sig pathway count mismatch — set={len(sig_pathways)}, N={N}"
-                )
-                assert len(overlap_sig) == k, (
-                    f"{comp_key}/{set_dir}: bone overlap count mismatch — set={len(overlap_sig)}, k={k}"
-                )
-
                 sig_ids_store[comp_key][set_dir] = sig_pathways
 
                 expected = (N * n) / M if M > 0 else 0

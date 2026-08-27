@@ -2,7 +2,7 @@
 Exports the validated DEPs for every threshold combination and comparison into
 a single Excel file, one sheet per (threshold combination × comparison).
 
-Output: validated_deps_supplement.xlsx  — 18 sheets (9 thresholds × 2 comparisons)
+Output: tissue_level_deps_supplement.xlsx  — 18 sheets (9 thresholds × 2 comparisons)
 Sheet naming: "AR{fc} ΔAR{stab} {comparison label}"
 """
 

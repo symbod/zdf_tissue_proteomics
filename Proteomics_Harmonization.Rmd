@@ -45,7 +45,7 @@ prot_file <- "input/report.pg_matrix.tsv"
 meta_file <- "input/SampleDescription.csv"
 
 save_plots <- TRUE
-# Define the final output directory or set NULL if results should note be saved
+# Define the final output directory or set NULL if results should not be saved
 final_out_dir <- "harmonization_results"
 # Creates the folder if it doesn't exist
 if(!is.null(final_out_dir)){dir.create(final_out_dir, recursive = TRUE, showWarnings = FALSE)}
@@ -165,7 +165,7 @@ Returns: A `ggplot` object.
 
 ```{r filter_proteins_plots, message=FALSE, warning=FALSE}
 if(save_plots && !is.null(final_out_dir))
-  { out_dir=paste0(subdir, "/") } else { out_dir=NULL }
+  { out_dir=subdir } else { out_dir=NULL }
 
 file_type="png"
 
@@ -341,13 +341,13 @@ Parameters:
 
 Returns: A list of two `ggplot` objects.
 
-##### Detailed Plot for Reduces Gene Names
+##### Detailed Plot for Reduced Gene Names
 
-`create_reduced_detailed_plot` is a specialized function for generating a detailed visualization of the logging data associated with the `reduce_genenames` method from the mqhandler package. This plot offers a granular view of the gene name reduction process, highlighting key steps and outcomes.
+`create_reduced_detailed_plot` is a specialized function for generating a detailed visualization of the logging data associated with the `reduce_genenames` method from the proharmed package. This plot offers a granular view of the gene name reduction process, highlighting key steps and outcomes.
 
 Parameters
 
-- `logging`: A DataFrame containing detailed logging data returned by the reduce_genenames method of mqhandler.
+- `logging`: A DataFrame containing detailed logging data returned by the reduce_genenames method of proharmed.
 - `out_dir`: (Optional) The directory where the plot will be saved. If not specified, the plot is not saved but returned for display.
 - `file_type`: (Optional) The file format for the saved plot (options include 'png', 'pdf', 'jpg', etc.).
 
@@ -390,7 +390,7 @@ The `map_orthologs` function from the `proharmed` package is designed to map gen
 # Define the parameters
 gene_column <- "ReducedGeneNames"
 organism <- "rat" 
-tar_organism <- "human"  #
+tar_organism <- "human"
 res_column <- "Orthologs"  # Column name for the results
 keep_empty <- TRUE 
 
@@ -453,7 +453,7 @@ overview_plots <- proharmed::create_overview_plot(logging = orthologs_prot_resul
 print(overview_plots[[1]]) # Distribution of number of entries per line
 print(overview_plots[[2]]) # Number of entries added and removed - removed genes could not be mapped to orthologs, they were not actually removed
 
-# Generate and visualize the detailed reduced gene names plot [needs fix]
+# Generate and visualize the detailed ortholog mapping plot
 detailed_plot <- proharmed::create_ortholog_detailed_plot(logging = orthologs_prot_results$Detailed_Log, 
                                                           organism = organism, 
                                                           out_dir = out_dir, file_type = file_type)
@@ -468,23 +468,6 @@ cat("After gene name remapping:", nrow(remapped_prot_data), "proteins\n")
 cat("After Ensembl reduction (removed proteins without canonical IDs):", nrow(reduced_prot_data), "proteins\n")
 cat("After ortholog mapping:", nrow(orthologs_prot_data), "proteins\n")
 cat("\nTotal proteins removed:", nrow(prot_data) - nrow(orthologs_prot_data), "\n")
-
-count_proteins_per_fraction <- function(data, meta, fraction_col = "fraction", sample_col = "sample_name") {
-  for (frac in unique(meta[[fraction_col]])) {
-    frac_samples <- meta[[sample_col]][meta[[fraction_col]] == frac]
-    frac_samples <- intersect(frac_samples, names(data))
-    
-    # Handle both data.table and data.frame
-    if (data.table::is.data.table(data)) {
-      subset <- data[, frac_samples, with = FALSE]
-    } else {
-      subset <- data[, frac_samples, drop = FALSE]
-    }
-    
-    has_value <- rowSums(!is.na(subset) & subset != 0) > 0
-    cat(sprintf("Proteins in %s fraction: %d\n", frac, sum(has_value)))
-  }
-}
 
 cat("=== COLUMN NAME MATCHING CHECK ===\n")
 for (frac in unique(meta_data$fraction)) {

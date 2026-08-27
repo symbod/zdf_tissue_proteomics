@@ -16,10 +16,6 @@ library_names <- c("PRONE", "dplyr", "data.table", "SummarizedExperiment", "tidy
 for (lib in library_names) {
   library(lib, character.only = TRUE)
 }
-BiocManager::install(c("clusterProfiler", "org.Rn.eg.db", "org.Hs.eg.db"))
-library(clusterProfiler)
-library(org.Rn.eg.db)
-library(org.Hs.eg.db)
 ```
 
 # Config
@@ -63,7 +59,7 @@ The `load_data` function efficiently loads and organizes proteomics data, taking
 - `label_column`: A column in md containing simple sample names for visualization purposes.
 
 **Preparing and Loading Data**
-In the following R code chunk, we first subset our metadata (md) to focus on specific samples identified in `com_ref_sets`. We then call the load_data function, passing our protein data (`prot_data`), the modified metadata, and specifying relevant columns for protein IDs, gene names, reference samples, batches, conditions, and labels.
+In the following R code chunk, we first subset our metadata (`md`) to the samples that actually have a column in the protein data. We then call the load_data function, passing our protein data (`prot_data`), the subset metadata, and specifying relevant columns for protein IDs, gene names, reference samples, batches, conditions, and labels.
 
 ```{r prepare_data}
 md <- meta_data[meta_data$Column %in% names(prot_data)]
@@ -92,41 +88,11 @@ print(names(assays(se)))
 
 # Differential Expression Analysis
 
-## Helper Function
-In this section, we introduce `reshape_data`, a function tailored to reorganize complex biological datasets for easier analysis.
-- The function transforms the data into a long format, where each row represents a single measurement. This format simplifies managing various measurements and comparisons.
-- It then combines comparison and measurement information into a new column, setting the stage for a clearer analysis of different conditions or timepoints.
-- Finally, `reshape_data` converts the data back to a wide format. In this format, each unique measurement and comparison pair forms a separate column, streamlining data comparison and interpretation.
-
-```{r}
-reshape_data <- function(data, id_vars, measure_vars) {
-    # Melt the data to long format
-    long_data <- melt(data, 
-                      id.vars = id_vars, 
-                      measure.vars = measure_vars,
-                      variable.name = "Measure", 
-                      value.name = "Value")
-    
-    long_data <- as.data.table(long_data)
-
-    # Create a new column that combines the Comparison and Measure
-    long_data[, Combined := paste0(Comparison, ".", Measure)]
-    
-    formula <- as.formula(paste(paste(setdiff(id_vars, "Comparison"), collapse=" + "), "~ Combined"))
-
-    # Cast the data back to wide format
-    wide_data <- dcast(long_data, formula, value.var = "Value")
-
-    return(wide_data)
-}
-```
-
-
 ## Prepare Data
 In this section, we prepare our dataset for analysis, crucial for comparing different experimental conditions and timepoints in biological research.
 - We extract and modify column data from our `SummarizedExperiment` object (`se`), creating a new column `Cond_Scaffold_Time`. This column uniquely identifies each condition, scaffold and timepoint by combining them with an underscore.
 - The updated column data is then reassigned back to `se`, ensuring our dataset includes these detailed identifiers.
-- Finally, we use `specify_comparisons` to generate a list of condition pairs (`comparisons`) from the `Cond_Time` column. This list is vital for subsequent comparative analyses, allowing for systematic examination across various experimental conditions.
+- The comparisons themselves are then listed explicitly in the next chunk, as pairs of `Cond_Scaffold_Time` values. This list is vital for subsequent comparative analyses, allowing for systematic examination across various experimental conditions.
 
 ```{r}
 # Inspect your metadata to find all available columns
@@ -140,7 +106,7 @@ col_data <- colData(se)
 
 col_data$Cond_Scaffold_Time <- paste(col_data$Condition, 
                                      col_data$Scaffold, 
-                                     col_data$Timepoint,  # <-- Replace with actual column name
+                                     col_data$Timepoint,
                                      sep = "_")
 
 # Print all unique values in the new column
@@ -181,7 +147,7 @@ The `run_DE` function performs DE analysis on the proteomics data within our `Su
 - `B` and `K`: Parameters specific to the ROTS method in DE analysis. `B` is the number of bootstraps, enhancing the robustness of the analysis, while `K` represents the number of top-ranked features considered for optimizing reproducibility.
 
 The Limma design matrix will look like this, because R automatically expands the single column:
-         diabetic_empty_42  nondiabetic_empty_42  diabetic_PCL_none_42  ...
+         diabetic_empty_42  nondiabetic_empty_42  diabetic_PCL_42  ...
 Sample1         1                   0                      0            ...
 Sample2         1                   0                      0            ...
 Sample3         0                   1                      0            ...
@@ -352,15 +318,11 @@ print(paste("Range:", round(min(de_results$logFC, na.rm=TRUE), 2), "to", round(m
 
 
 ### Save Results
-We save the raw differential expression results as `de_results_raw.csv` for record-keeping and future reference. The results are then reshaped for clarity and merged with parsed protein IDs, creating a comprehensive dataset named `reshaped_de_results_go`. This enriched dataset is also preserved in a CSV file, `de_results_go.csv`, ensuring all critical data and insights are securely stored and accessible for subsequent analysis or review.
+We save the raw differential expression results as `de_results_raw.csv` for record-keeping and future reference. The results are then merged with the human ortholog annotations carried by the input data, creating a comprehensive dataset named `de_results_with_orthologs`. This enriched dataset is also preserved in a CSV file, `de_results_raw_with_orthologs.csv`, ensuring all critical data and insights are securely stored and accessible for subsequent analysis or review.
 
 ```{r}
 # Save de_results to de_results_raw.csv
 write.csv(de_results, file.path(final_out_dir, "de_results_raw.csv"), row.names = FALSE)
-
-reshaped_de_results <- reshape_data(data = de_results,
-                                    id_vars = c("Protein.IDs", "Gene.Names", "Comparison"), 
-                                    measure_vars = c("logFC", "P.Value", "adj.P.Val"))
 
 cat("Column names in de_results:\n")
 print(names(de_results))
@@ -384,8 +346,6 @@ We next focus on isolating differentially expressed proteins (DEPs) from our ana
 ### Get Significant DEPs and save results
 ```{r}
 de_results_sig <- de_results[de_results$Change != "No Change"]
-# Comparison is a column in the differential expression results dataframe that contains the comparison name for each protein result.
-de_results_sig_subsets <- split(de_results_sig, de_results_sig$Comparison)
 
 write.csv(de_results_sig, file.path(final_out_dir, "de_results_significant.csv"), row.names = FALSE)
 ```

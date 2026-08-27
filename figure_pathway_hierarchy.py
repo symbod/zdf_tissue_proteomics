@@ -2,7 +2,7 @@
 Dotplot of top enriched pathways per protein set and comparison.
 
 Rows = union of top-10 pathways (significant in ALL 3 protein sets) per comparison,
-sorted by namespace then GO depth. Columns = 3 protein sets × 2 comparisons.
+sorted by mean −log10(p.adj) across the six cells. Columns = 3 protein sets × 2 comparisons.
 Dot size = −log10(p.adj); grey dot = not significant.
 GO depths downloaded once from go-basic.obo and cached at ~/.cache/go-basic.obo.
 """
@@ -182,7 +182,6 @@ def build_dot_df(data: pd.DataFrame, bone_ids: set) -> pd.DataFrame:
                 - one column per (comparison × set) combination, named
                   "<comp_key>__<set_key>", containing neg_log_padj if the pathway
                   is significant there, NaN otherwise (→ grey dot in the figure)
-                - cat_rank    : integer used for sorting by namespace
                 - in_bone_meta: True if this pathway is in the bone-healing reference
 
     How pathways are selected:
@@ -326,7 +325,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
     ax.spines[["top", "right"]].set_visible(False)
 
     # ── legends on the right ──────────────────────────────────────────────────
-    # tight_layout constrains axes to the left 68 % of the figure width;
+    # tight_layout constrains axes to the left 80 % of the figure width;
     # the remaining strip on the right holds the two legends and the star note.
     fig.tight_layout(rect=[0, 0, 0.80, 1])
 

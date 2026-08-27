@@ -61,6 +61,7 @@ for fc in FC_THRESHOLDS:
 
         # Reads:
         #   - summary_statistics.csv  → tissue-level / first-level counts and overlaps
+        #   - validated_DEPs.csv      → per-protein gene sets for the "shared" bars
         #   - DE results              → total tested proteome size per comparison
         #   - exception_proteins.csv  → connector proteins from both-levels network enrichment
         #   - bone_caps_meta_analysis → reference gene list for hypergeometric test

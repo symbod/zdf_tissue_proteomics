@@ -116,7 +116,7 @@ def run_drug_search(genes, comparison, set_name, output_dir):
 
     # Extract drug information
     drug_data = []
-    for drug_name, drug_info in data['drugs'].items():
+    for drug_info in data['drugs'].values():
         drug_record = {
             'Comparison': comparison,
             'Set': set_name,

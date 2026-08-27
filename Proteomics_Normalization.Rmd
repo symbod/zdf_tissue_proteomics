@@ -78,7 +78,7 @@ print(head(names(prot_data), 10))
 - Creating a Copy of `meta_data`:
 We start by creating a copy of the original `meta_data` data table and assign it to md. This approach preserves the original `meta_data` for any future references.
 We modify and generate column names.
-This results in a refined version of md with a focus on the columns "Column", "TMT", "Batch", "Animal", "Timepoint", "Condition", "Location", and "Label".
+This results in a refined version of md with a focus on the columns "Column", "Batch", "Animal", "Fraction", "Scaffold", "Intervention", "Timepoint", "Tissue", "Condition", and "Label".
 
 ```{r change_meta}
 # Make copy of meta_data
@@ -124,11 +124,8 @@ proteins_as_only <- 0
 proteins_both <- 0
 proteins_none <- 0
 
-# Initialize lists to store protein identifiers
+# Collect the AS-exclusive identifiers, which are listed individually below
 proteins_as_only_list <- c()
-proteins_ai_only_list <- c()
-proteins_both_list <- c()
-proteins_none_list <- c()
 
 # Only analyze proteins with a valid name
 valid_proteins <- !is.na(prot_data$ReducedGeneNames) & prot_data$ReducedGeneNames != ""
@@ -146,16 +143,13 @@ for (i in 1:nrow(analysis_data)) {
   # Categorize based on occurrence
   if (has_ai && has_as) {
     proteins_both <- proteins_both + 1
-    proteins_both_list <- c(proteins_both_list, protein_id)
   } else if (has_ai) {
     proteins_ai_only <- proteins_ai_only + 1
-    proteins_ai_only_list <- c(proteins_ai_only_list, protein_id)
   } else if (has_as) {
     proteins_as_only <- proteins_as_only + 1
     proteins_as_only_list <- c(proteins_as_only_list, protein_id)
   } else {
     proteins_none <- proteins_none + 1
-    proteins_none_list <- c(proteins_none_list, protein_id)
   }
 }
 
@@ -201,7 +195,7 @@ cat("Original protein dataset shape: ", original_prot_shape[1], "rows ×", origi
 removable_samples_in_md <- md$Column[md$Fraction == fraction_to_remove]
 cat("\nFound", length(removable_samples_in_md), "fraction samples in metadata to remove\n")
 
-# Step 2: Remove AS samples from meta data first
+# Step 2: Remove the samples of the discarded fraction from the metadata first
 cat("\n--- Removing Fraction samples from metadata ---\n")
 md_filtered <- md[md$Fraction != fraction_to_remove, ]
 md_new_shape <- dim(md_filtered)
@@ -212,7 +206,7 @@ md <- md_filtered
 
 # Step 3: Remove corresponding samples from protein dataset
 cat("\n--- Removing fraction samples from protein dataset ---\n")
-# Find AS sample columns that exist in protein data
+# Find the discarded fraction's sample columns that exist in protein data
 removable_samples_in_data <- intersect(removable_samples_in_md, names(prot_data))
 cat("Corresponding columns found in protein data:", length(removable_samples_in_data), "\n")
 
@@ -241,7 +235,7 @@ new_prot_shape <- dim(prot_data)
 cat("Final protein dataset shape: ", new_prot_shape[1], "rows ×", new_prot_shape[2], "columns\n")
 cat("Columns removed from protein data:", original_prot_shape[2] - new_prot_shape[2], "\n")
 
-# Verify no AS columns remain in protein data
+# Verify no columns of the discarded fraction remain in protein data
 remaining_removable_cols_in_data <- intersect(removable_samples_in_md, names(prot_data))
 cat("Remaining removable columns in protein data:", length(remaining_removable_cols_in_data), "\n")
 
@@ -301,16 +295,9 @@ print(names(assays(se)))
 ```
 
 ### Filter Proteins
-In the subsequent steps, we employ specific filtering criteria to refine the proteomics dataset. This involves the removal of proteins based on the presence of missing values (NAs) and specific attributes. We utilize two distinct functions for this purpose:
-- `filter_complete_NA_proteins`: This function targets proteins that exhibit missing values across all samples. Removing these proteins ensures that the dataset focuses only on proteins with measurable values, thereby enhancing the quality and reliability of the data.
-- `filter_proteins_by_value`: This function is designed to filter out proteins based on specific values in a given column. For instance, proteins marked as reverse hits, potential contaminants, or only identified by a particular site can be selectively excluded from the analysis, improving the dataset's accuracy.
+In the subsequent step, we refine the proteomics dataset by removing proteins that have no measurable value at all:
+- `filter_out_complete_NA_proteins`: This function targets proteins that exhibit missing values across all samples. Removing these proteins ensures that the dataset focuses only on proteins with measurable values, thereby enhancing the quality and reliability of the data. Reverse hits and potential contaminants have already been removed upstream, in the harmonization step.
 ```{r filter_proteins}
-# List all functions in the PRONE package
-prone_functions <- ls("package:PRONE")
-# Look for functions with "filter" in their name
-filter_functions <- grep("filter", prone_functions, value = TRUE)
-print(filter_functions)
-
 # remove proteins with NAs in all samples
 se <- filter_out_complete_NA_proteins(se)
 ```
@@ -574,7 +561,7 @@ scale_se <- function(se_data, methods){
   ctrl42_count <- sum(se_data$Tissue == "ctrl_42")
   cat(sprintf("Control samples to be removed: %d ctrl_42 samples\n", ctrl42_count))
 
-  # Remove ctrl_0 from the SummarizedExperiment
+  # Remove the ctrl_42 reference samples from the SummarizedExperiment
   samples_to_keep <- se_data$Tissue != "ctrl_42"
   se_scaled <- se_data[, samples_to_keep]
   
@@ -598,7 +585,7 @@ if (!is.null(final_out_dir)){
   scaled_dir <- file.path(final_out_dir, "scaled")
   dir.create(scaled_dir, recursive = TRUE, showWarnings = FALSE)
   # Export scaled data
-  export_data(se = se_scaled, out_dir = file.path(final_out_dir, "scaled"), ain = scaled_methods)
+  export_data(se = se_scaled, out_dir = scaled_dir, ain = scaled_methods)
 }
 
 p1 <- plot_boxplots(se_scaled, ain = paste(normalization_methods, "_scaled", sep=""),

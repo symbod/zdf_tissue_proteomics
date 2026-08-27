@@ -54,13 +54,16 @@ README = pd.DataFrame([
     ("<sample columns>",         "RobNorm-normalized log2 abundances (scaled in scaled sheets). Missing = not detected."),
     ("",                         ""),
     ("Metadata column",          "Description"),
-    ("sample_name",              "Sample identifier."),
-    ("animal_no",                "Animal number."),
-    ("fraction",                 "Proteomics fraction."),
-    ("genotype",                 "Diabetic or non-diabetic."),
-    ("scaffold",                 "Scaffold condition."),
-    ("time",                     "Time point (days)."),
-    ("intervention",             "Group label (genotype + scaffold + time)."),
+    ("Column",                   "Sample identifier (matches the sample columns of the data sheets)."),
+    ("Batch",                    "Study / batch identifier."),
+    ("Animal",                   "Animal number."),
+    ("Fraction",                 "Proteomics fraction (AI or AS)."),
+    ("Scaffold",                 "Scaffold condition."),
+    ("Intervention",             "Intervention label."),
+    ("Timepoint",                "Time point (days)."),
+    ("Tissue",                   "Tissue type."),
+    ("Condition",                "Diabetic or non-diabetic."),
+    ("Label",                    "Short sample label used in figures."),
 ], columns=["_", "__"])
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:

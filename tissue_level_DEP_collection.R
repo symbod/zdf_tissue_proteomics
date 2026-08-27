@@ -257,7 +257,7 @@ for (i in 1:min(10, nrow(extreme_fc))) {
 # FC thresholds derived from the background distribution computed above — no hardcoding.
 fc_thresholds        <- round(c(p70, p80, p90), 2)
 # Stability threshold = max allowed ratio between the two groups' geo-mean FCs.
-# e.g. 1.25 means "the larger group's AI/AS separation is at most 1.25-fold the smaller's".
+# e.g. 1.2 means "the larger group's AI/AS separation is at most 1.2-fold the smaller's".
 stability_thresholds <- c(1.1, 1.2, 1.3)
 
 
@@ -456,8 +456,7 @@ for (fc_thresh in fc_thresholds) {
       all_dep_genes <- unique(toupper(trimws(unlist(strsplit(as.character(all_dep_orthologs), ";")))))
       overlap_total <- sum(any_ortholog_in(all_dep_orthologs, meta_genes), na.rm = TRUE)
       
-      validated_count <- ifelse(comp %in% names(all_validated_deps),
-                                nrow(all_validated_deps[[comp]]), 0)
+      validated_count <- nrow(all_validated_deps[[comp]])
       
       if (validated_count > 0) {
         validated <- all_validated_deps[[comp]]

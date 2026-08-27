@@ -1,12 +1,13 @@
 """
 DEP fraction breakdown — single combined figure.
-Panel (a): Two Venn diagrams stacked (one per comparison) showing DEP overlap
-           between AI and AS fractions.
-Panel (b): Two sets of stacked bars stacked (one per comparison) broken down
-           by category: Both | AI-only | AS-only, with concordant/discordant
-           and detected/exclusive sub-segments.
+One row per comparison: empty defect on top (panels a, b), PCL scaffold below
+(panels c, d).
+Left column (a, c):  Venn diagram of the DEP overlap between AI and AS fractions.
+Right column (b, d): stacked bars broken down by category
+                     Both | AI-only | AS-only, with concordant/discordant
+                     and detected/exclusive sub-segments.
 
-Reads validation_table CSVs exported by valid_DEP_collection.R.
+Reads validation_table CSVs exported by tissue_level_DEP_collection.R.
 dep_type / ai_exclusive / as_exclusive are threshold-independent.
 """
 
@@ -152,7 +153,7 @@ for ax, comp in zip(venn_axes, COMPARISONS):
 for ax, comp in zip(bar_axes, COMPARISONS):
     d = all_data[comp]
 
-    for x_pos, (xtick, keys) in zip(CAT_X, CAT_GROUPS):
+    for x_pos, (_, keys) in zip(CAT_X, CAT_GROUPS):
         bottom = 0
         for key in keys:
             count = d[key]

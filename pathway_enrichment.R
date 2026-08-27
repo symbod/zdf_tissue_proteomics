@@ -1,6 +1,8 @@
-# Performs GO and KEGG enrichment analysis on validated DEPs across multiple 
-# FC/stability threshold combinations. Outputs: (1) complete enrichment results, 
-# (2) significant pathways only (p.adj < 0.05), and (3) summary statistics.
+# Performs GO and KEGG enrichment analysis on validated DEPs across multiple
+# FC/stability threshold combinations. Outputs per threshold combination:
+# (1) <comparison>_<set>_enrichment_complete.csv — all tested terms, with a
+#     "Significant" flag (p.adjust < 0.05), and
+# (2) <comparison>_enrichment_summary.csv — per-set counts.
 
 # Enrichment Analysis on Validated DEPs
 library(clusterProfiler)
@@ -155,7 +157,7 @@ for (fc_thresh in fc_thresholds) {
   for (stab_thresh in stability_thresholds) {
     
     cat("\n\n========================================\n")
-    cat("PROCESSING: FC", fc_thresh, "| Stability", stab_thresh, "%\n")
+    cat("PROCESSING: FC", fc_thresh, "| Stability", stab_thresh, "-fold\n")
     cat("========================================\n\n")
     
     # Define paths for this threshold combination
@@ -183,9 +185,8 @@ for (fc_thresh in fc_thresholds) {
       # Get validated DEPs for this comparison
       comp_deps <- validated_deps[validated_deps$Comparison == comparison, ]
       
-      # Separate first-level and second-level
+      # First-level DEPs (set 3); sets 1 and 2 use all of comp_deps
       first_level_deps <- comp_deps[grepl("both fractions|Exclusive", comp_deps$Validation), ]
-      second_level_deps <- comp_deps[grepl("Dominant and stable", comp_deps$Validation), ]
       
       # Load MUST connector proteins for tissue-level DEPs (both_levels network run)
       exception_file <- file.path("network_enrichment_results", comparison, "both_levels", "exception_proteins.csv")
@@ -302,7 +303,7 @@ for (fc_thresh in fc_thresholds) {
                 all_enrichment_results[[length(all_enrichment_results) + 1]] <- result_data
 
                 # Count significant and total tested
-                n_sig <- sum(result_data$p.adjust < 0.05)
+                n_sig <- sum(result_data$Significant)
                 n_significant <- n_significant + n_sig
                 n_total_tested <- n_total_tested + nrow(result_data)
 
@@ -320,12 +321,7 @@ for (fc_thresh in fc_thresholds) {
           }
           
           # Get the actual number of genes tested (Entrez IDs)
-          genes_tested <- if (!is.null(enrichment_results)) {
-            gene_entrez <- convert_to_entrez(genes)
-            length(gene_entrez)
-          } else {
-            0
-          }
+          genes_tested <- length(convert_to_entrez(genes))
           
           is_set2 <- set_name == "set2_tissue_plus_network"
           summary_row <- data.frame(

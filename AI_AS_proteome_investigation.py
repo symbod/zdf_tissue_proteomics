@@ -106,7 +106,7 @@ venn_legend = [
 both_sets    = []
 group_tables = {}   # {title: {ai_only, as_only, both}}
 
-for ax_v, (genotype, scaffold, title), color in zip(venn_axes, GROUPS, GROUP_COLORS):
+for ax_v, (genotype, scaffold, title) in zip(venn_axes, GROUPS):
     ai_cols = samples_for("AI", genotype, scaffold)
     as_cols = samples_for("AS", genotype, scaffold)
     det_ai  = detected_proteins(ai_df, ai_cols)
