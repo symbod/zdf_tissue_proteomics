@@ -70,6 +70,7 @@ for fc in FC_THRESHOLDS:
         PATHWAY_N     = {}
         pathway_pvals = {}
         sig_ids_store = {ck: {} for ck in COMPARISONS}
+        complete_ids_store = {ck: {} for ck in COMPARISONS}
 
         for comp_key, comp_label in COMPARISONS.items():
             n_sig_list = []
@@ -84,6 +85,7 @@ for fc in FC_THRESHOLDS:
                     n_sig_list.append(0)
                     p_list.append(1.0)
                     sig_ids_store[comp_key][set_dir] = set()
+                    complete_ids_store[comp_key][set_dir] = set()
                     continue
 
                 df     = pd.read_csv(fpath)
@@ -100,6 +102,7 @@ for fc in FC_THRESHOLDS:
                 k = len(overlap_sig)
 
                 sig_ids_store[comp_key][set_dir] = sig_pathways
+                complete_ids_store[comp_key][set_dir] = complete_pathways
 
                 expected = (N * n) / M if M > 0 else 0
                 p        = hypergeom.sf(k - 1, M, n, N)
@@ -134,11 +137,44 @@ for fc in FC_THRESHOLDS:
             for s in SET_DIRS
         ]
 
+        # Overlap significance of the shared pathways. The population is the terms
+        # tested in both comparisons, counted as above (M = tested terms, n = those
+        # in the bone-healing reference); a shared significant term is always in it.
+        pathway_pvals["Shared"] = []
+        for set_dir in SET_DIRS:
+            tested_both = complete_ids_store[comp_keys_list[0]][set_dir] & complete_ids_store[comp_keys_list[1]][set_dir]
+            shared      = sig_ids_store[comp_keys_list[0]][set_dir] & sig_ids_store[comp_keys_list[1]][set_dir]
+
+            M = len(tested_both)
+            n = len(bone_pathways & tested_both)
+            N = len(shared)
+            k = len(bone_pathways & shared)
+
+            expected = (N * n) / M if M > 0 else 0
+            p        = hypergeom.sf(k - 1, M, n, N) if M > 0 else 1.0
+            pathway_pvals["Shared"].append(p)
+
+            _results.append({
+                "AR threshold":          fc,
+                "ΔAR":                   stab,
+                "Comparison":            "Shared",
+                "Protein set":           set_dir,
+                "Terms tested (M)":      M,
+                "Bone terms tested (n)": n,
+                "Significant terms (N)": N,
+                "Bone terms significant (k)": k,
+                "Expected overlap":      round(expected, 2),
+                "p-value":               p,
+            })
+
+            print(f"\n  Shared / {set_dir}:")
+            print(f"    Terms tested={M}  bone in tested={n}  significant={N}  bone in significant={k}  p={p:.2e}")
+
         # ── Figure ────────────────────────────────────────────────────────────
 
         x          = np.arange(len(labels))
         bar_comps  = list(PATHWAY_N.keys())       # Empty defect, PCL scaffold, Shared
-        pval_comps = list(pathway_pvals.keys())   # Empty defect, PCL scaffold
+        pval_comps = list(pathway_pvals.keys())   # Empty defect, PCL scaffold, Shared
         n_bar      = len(bar_comps)
         n_pval     = len(pval_comps)
 
@@ -251,6 +287,7 @@ README = pd.DataFrame([
     ("Sheet name",  "Content"),
     ("Empty defect", "Diabetic vs. non-diabetic, empty bone defect."),
     ("PCL scaffold", "Diabetic vs. non-diabetic, PCL scaffold."),
+    ("Shared",       "Pathways significant in both comparisons; population = terms tested in both comparisons."),
     ("",            ""),
     ("Column name", "Description"),
     ("AR threshold",               "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
@@ -272,7 +309,7 @@ README = pd.DataFrame([
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
     README.to_excel(writer, sheet_name="README", index=False, header=False, startrow=2)
     writer.sheets["README"]["A1"] = "Enriched Pathway Overlap with Bone-Healing Reference Pathways"
-    for comp_label in COMPARISONS.values():
+    for comp_label in [*COMPARISONS.values(), "Shared"]:
         subset = results_df[results_df["Comparison"] == comp_label].drop(columns="Comparison")
         pivot  = subset.pivot(
             index=["AR threshold", "ΔAR"],
@@ -285,4 +322,4 @@ with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
         pivot.to_excel(writer, sheet_name=comp_label, index=False)
 
 print(f"Saved → {OUT_FILE}")
-print(f"  Sheets: {list(COMPARISONS.values())}")
+print(f"  Sheets: {[*COMPARISONS.values(), 'Shared']}")

@@ -72,6 +72,7 @@ for fc in FC_THRESHOLDS:
         protein_pvals = {}
         valid_deps    = pd.read_csv(os.path.join(THRESH_DIR, "validated_DEPs.csv"))
         _gene_sets    = {}
+        _tested       = {}
 
         for comp_key, comp_label in COMPARISONS.items():
             row = summary.loc[comp_key]
@@ -86,11 +87,10 @@ for fc in FC_THRESHOLDS:
 
             # Human genes represented by the tested proteome, used below to decide
             # which connector proteins are genuinely new members of the population.
-            tested_genes = human_orthologs(
-                pd.concat([ai_comp[["Protein.IDs", "Orthologs"]],
-                           as_comp[["Protein.IDs", "Orthologs"]]])
-                  .drop_duplicates("Protein.IDs")["Orthologs"]
-            )
+            tested = pd.concat([ai_comp[["Protein.IDs", "Orthologs"]],
+                                as_comp[["Protein.IDs", "Orthologs"]]]).drop_duplicates("Protein.IDs")
+            tested_genes = human_orthologs(tested["Orthologs"])
+            _tested[comp_key] = tested
 
             # Set 1: tissue-level DEPs (first-level + second-level combined)
             s1 = int(row["Validated_Both_Fractions"] + row["Validated_Exclusive"] + row["Validated_Second_Level"])
@@ -99,12 +99,6 @@ for fc in FC_THRESHOLDS:
             p1 = hypergeom.sf(o1 - 1, M, n, s1)
 
             # Set 2: tissue-level DEPs + connector proteins (from both-levels network).
-            # Connectors come from the human interactome, so most of them are not
-            # members of the tested proteome. Adding them to the draw without also
-            # adding them to the population would make the draw exceed what the
-            # population can supply, so the population grows by the connectors that
-            # are genuinely new (and its successes by any bone-healing reference
-            # protein among them).
             exc_path  = os.path.join(NET_DIR, comp_key, "both_levels", "exception_proteins.csv")
             exc_prots = set(pd.read_csv(exc_path)["Gene"].dropna().str.upper())
             new_conn  = exc_prots - tested_genes
@@ -172,11 +166,45 @@ for fc in FC_THRESHOLDS:
             for i in range(3)
         ]
 
+        # Overlap significance of the shared sets. The population is the proteins
+        # tested in both comparisons, counted as above (M = distinct Protein.IDs,
+        # n = those with a bone-healing reference ortholog, cf. Bone_Caps_Tested)
+        # and expanded by the connectors that are not part of it, as for set 2.
+        tested_both = _tested[comp_keys[0]]
+        tested_both = tested_both[tested_both["Protein.IDs"].isin(_tested[comp_keys[1]]["Protein.IDs"])]
+        M_shared    = len(tested_both)
+        n_shared    = int(tested_both["Orthologs"].dropna().map(
+            lambda o: any(g.strip().upper() in bone_caps for g in o.split(";"))).sum())
+        genes_both  = human_orthologs(tested_both["Orthologs"])
+        protein_pvals["Shared"] = []
+        for i, set_label in enumerate(["First-level DEPs", "Tissue-level DEPs",
+                                       "Tissue-level DEPs + connector proteins"]):
+            shared    = _gene_sets[comp_keys[0]][i] & _gene_sets[comp_keys[1]][i]
+            new_conn  = shared - genes_both   # only connectors can be missing from the tested proteome
+            pop, succ = M_shared + len(new_conn), n_shared + len(new_conn & bone_caps)
+            o = len(shared & bone_caps)
+            p = hypergeom.sf(o - 1, pop, succ, len(shared))
+            protein_pvals["Shared"].append(p)
+            _results.append({
+                "AR threshold":             fc,
+                "ΔAR":                      stab,
+                "Comparison":               "Shared",
+                "Protein set":              set_label,
+                "Proteome size (M)":        pop,
+                "Bone-healing reference proteins in proteome (n)": succ,
+                "Protein set size (N)":     len(shared),
+                "Bone-healing reference protein overlap (k)":    o,
+                "Expected overlap":         round((len(shared) * succ) / pop, 2) if pop > 0 else 0,
+                "p-value":                  p,
+            })
+        print(f"\nShared:  population M={M_shared} (successes n={n_shared})  "
+              f"N={PROTEIN_N['Shared']}  p={['%.3e' % p for p in protein_pvals['Shared']]}")
+
         # ── Figure ────────────────────────────────────────────────────────────
 
         x          = np.arange(len(labels))
         bar_comps  = list(PROTEIN_N.keys())       # Empty defect, PCL scaffold, Shared
-        pval_comps = list(protein_pvals.keys())   # Empty defect, PCL scaffold
+        pval_comps = list(protein_pvals.keys())   # Empty defect, PCL scaffold, Shared
         n_bar      = len(bar_comps)
         n_pval     = len(pval_comps)
 
@@ -285,6 +313,7 @@ README = pd.DataFrame([
     ("Sheet name",   "Content"),
     ("Empty defect", "Diabetic vs. non-diabetic, empty bone defect."),
     ("PCL scaffold", "Diabetic vs. non-diabetic, PCL scaffold."),
+    ("Shared",       "Proteins shared between both comparisons"),
     ("",             ""),
     ("Column name",  "Description"),
     ("AR threshold",              "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
@@ -306,7 +335,7 @@ README = pd.DataFrame([
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
     README.to_excel(writer, sheet_name="README", index=False, header=False, startrow=2)
     writer.sheets["README"]["A1"] = "Protein Set Overlap with Bone-Healing Reference Proteins"
-    for comp_label in COMPARISONS.values():
+    for comp_label in [*COMPARISONS.values(), "Shared"]:
         subset = results_df[results_df["Comparison"] == comp_label].drop(columns="Comparison")
         pivot  = subset.pivot(
             index=["AR threshold", "ΔAR"],
@@ -323,4 +352,4 @@ with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
         pivot.to_excel(writer, sheet_name=comp_label, index=False)
 
 print(f"Saved → {OUT_FILE}")
-print(f"  Sheets: {list(COMPARISONS.values())}")
+print(f"  Sheets: {[*COMPARISONS.values(), 'Shared']}")
