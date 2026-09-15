@@ -17,8 +17,6 @@ cat("clusterProfiler version:", as.character(packageVersion("clusterProfiler")),
 cat("org.Rn.eg.db version:", as.character(packageVersion("org.Rn.eg.db")), "\n")
 cat("-----------------------------------------------------------------\n\n")
 
-setwd("/home/ole/symbod_proteomics")
-
 citation("org.Rn.eg.db")
 
 # Setup paths
