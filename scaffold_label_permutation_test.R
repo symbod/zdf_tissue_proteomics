@@ -3,9 +3,11 @@
 #
 # QUESTION
 #   The empty-defect comparison (diabetic vs non-diabetic) yields more tissue-level
-#   DEPs than the PCL comparison (148 vs 106). If the scaffold made no difference
-#   to how diabetes affects the proteome, how often would an analysis like ours
-#   produce a difference at least this large?
+#   DEPs than the PCL comparison (148 vs 106), and its tissue-level DEPs overlap
+#   more significantly with the bone-healing reference proteins (p = 2.4e-5 vs
+#   0.018). If the scaffold made no difference to how diabetes affects the
+#   proteome, how often would an analysis like ours produce differences at least
+#   this large?
 #
 # NULL HYPOTHESIS
 #   Within each genotype, the labels "empty defect" and "PCL scaffold" are
@@ -14,10 +16,13 @@
 #
 # INPUT   normalization_results_{AI,AS}/scaled/RobNorm_scaled_normalized_data.csv + meta_data.csv
 #         normalization_results_{AI,AS}/RobNorm_normalized_data.csv + meta_data.csv
-#         valid_DEPs/FC5.59_Stab1.2/summary_statistics.csv                          self-check only
+#         input/bone_caps_meta_analysis.csv                                        bone-healing reference proteins
+#         valid_DEPs/FC5.59_Stab1.2/summary_statistics.csv                          } self-check only
+#         de_analysis_results_{AI,AS}_RobNorm_scaled/de_results_raw_with_orthologs.csv }
 # OUTPUT  valid_DEPs/FC5.59_Stab1.2/scaffold_label_permutation_test/
-#         permutations.csv   tissue-level DEP counts of both comparisons and their difference, per permutation
-#         summary.csv        observed difference, its null distribution and the p-value
+#         permutations.csv   per permutation and comparison: tissue-level DEPs, tested proteins, bone-healing
+#                            reference proteins among them, overlap p-value; and the two statistics
+#         summary.csv        observed value, null distribution and p-value of both statistics
 # ==============================================================================
 
 suppressPackageStartupMessages({ library(PRONE); library(SummarizedExperiment); library(data.table); library(parallel) })
@@ -75,6 +80,12 @@ background_ratios <- 2^abs(unscaled_intensity$AI - unscaled_intensity$AS)       
 stopifnot(round(quantile(background_ratios, 0.80, na.rm = TRUE), 2) == ABUNDANCE_RATIO_THRESHOLD)
 RATIO_IF_ONE_FRACTION_ONLY <- quantile(background_ratios, 0.99, na.rm = TRUE)
 
+# Human orthologs of every protein (identical in both fractions) and the bone-healing reference genes
+ortholog_table       <- unique(rbind(fread("normalization_results_AI/scaled/RobNorm_scaled_normalized_data.csv")[, .(Protein.IDs, Orthologs)],
+                                     fread("normalization_results_AS/scaled/RobNorm_scaled_normalized_data.csv")[, .(Protein.IDs, Orthologs)]))
+orthologs_of_protein <- setNames(ortholog_table$Orthologs, ortholog_table$Protein.IDs)
+bone_reference_genes <- unique(toupper(fread("input/bone_caps_meta_analysis.csv")$Gene))
+
 # ---- Step 1: differential expression (the DE notebook) ---------------------------
 differential_expression <- function(summarized_experiment, groups, diabetic_group, nondiabetic_group) {
   colData(summarized_experiment)$Cond_Scaffold_Time <- unname(groups[colData(summarized_experiment)$Animal])
@@ -86,7 +97,8 @@ differential_expression <- function(summarized_experiment, groups, diabetic_grou
     run_DE(se = summarized_experiment[enough_values, ], comparisons = paste0(diabetic_group, "-", nondiabetic_group),
            ain = "RobNorm_scaled", condition = "Cond_Scaffold_Time", DE_method = "limma",
            logFC = TRUE, logFC_up = 1, logFC_down = -1, p_adj = TRUE, alpha = 0.05)))
-  as.data.table(de_result)[Change != "No Change", .(Protein.IDs, Direction = as.character(Change))]   # the DEPs
+  list(tested_proteins = rowData(summarized_experiment)$Protein.IDs[enough_values],
+       deps            = as.data.table(de_result)[Change != "No Change", .(Protein.IDs, Direction = as.character(Change))])
 }
 
 # ---- Step 2: tissue-level DEPs (tissue_level_DEP_collection.R) ------------------
@@ -108,15 +120,16 @@ ratio_summary <- function(animals_subset) {
                                  if (length(distinct_fractions) == 1) distinct_fractions else "Inconsistent" }),
              geo_mean_ratio    = exp(rowMeans(log(ratio_per_sample), na.rm = TRUE)))[rowSums(measured) > 0]
 }
-# The validation rules, applied to every protein that is a DEP in at least one fraction; returns the number validated
-count_tissue_level_deps <- function(groups, diabetic_group, nondiabetic_group) {
-  deps_AI <- differential_expression(de_input$AI, groups, diabetic_group, nondiabetic_group)
-  deps_AS <- differential_expression(de_input$AS, groups, diabetic_group, nondiabetic_group)
+# The validation rules, applied to every protein that is a DEP in at least one fraction.
+# Returns the validated (tissue-level) proteins and the proteins tested in either fraction.
+tissue_level_deps <- function(groups, diabetic_group, nondiabetic_group) {
+  de_AI <- differential_expression(de_input$AI, groups, diabetic_group, nondiabetic_group)
+  de_AS <- differential_expression(de_input$AS, groups, diabetic_group, nondiabetic_group)
   diabetic_animals    <- defect_animals[groups == diabetic_group]
   nondiabetic_animals <- defect_animals[groups == nondiabetic_group]
-  candidates <- data.table(Protein.IDs = union(deps_AI$Protein.IDs, deps_AS$Protein.IDs))
-  candidates <- merge(candidates, deps_AI[, .(Protein.IDs, Direction_AI = Direction)], all.x = TRUE)
-  candidates <- merge(candidates, deps_AS[, .(Protein.IDs, Direction_AS = Direction)], all.x = TRUE)
+  candidates <- data.table(Protein.IDs = union(de_AI$deps$Protein.IDs, de_AS$deps$Protein.IDs))
+  candidates <- merge(candidates, de_AI$deps[, .(Protein.IDs, Direction_AI = Direction)], all.x = TRUE)
+  candidates <- merge(candidates, de_AS$deps[, .(Protein.IDs, Direction_AS = Direction)], all.x = TRUE)
   candidates <- merge(candidates, ratio_summary(c(diabetic_animals, nondiabetic_animals)), all.x = TRUE)   # both groups together
   candidates <- merge(candidates, ratio_summary(diabetic_animals)[, .(Protein.IDs, ratio_diabetic = geo_mean_ratio)], all.x = TRUE)
   candidates <- merge(candidates, ratio_summary(nondiabetic_animals)[, .(Protein.IDs, ratio_nondiabetic = geo_mean_ratio)], all.x = TRUE)
@@ -130,25 +143,54 @@ count_tissue_level_deps <- function(groups, diabetic_group, nondiabetic_group) {
     dep_in_AI & dep_in_AS & Direction_AI == Direction_AS, TRUE,   # significant in both fractions, same direction
     geo_mean_ratio >= ABUNDANCE_RATIO_THRESHOLD & dominant_fraction == single_dep_fraction & stability_ratio <= STABILITY_THRESHOLD, TRUE,   # dominant and stable
     default = FALSE)]
-  sum(candidates$validated)
+  list(validated_proteins = candidates[validated == TRUE, Protein.IDs],
+       tested_proteins    = union(de_AI$tested_proteins, de_AS$tested_proteins))
 }
 
-# ---- The statistic for one labelling of the animals ------------------------------
-dep_count_difference <- function(groups) {
-  n_tissue_level_deps <- sapply(COMPARISONS, function(groups_of_comparison)
-    count_tissue_level_deps(groups, groups_of_comparison["diabetic"], groups_of_comparison["nondiabetic"]))
-  data.table(tissue_level_DEPs_empty    = n_tissue_level_deps[["empty defect"]],
-             tissue_level_DEPs_PCL      = n_tissue_level_deps[["PCL scaffold"]],
-             difference_empty_minus_PCL = n_tissue_level_deps[["empty defect"]] - n_tissue_level_deps[["PCL scaffold"]])
+# ---- Step 3: overlap with the bone-healing reference proteins (protein_sets_overlap_bone_CAPs.py) ----
+# A protein is a reference protein when any of its human orthologs (semicolon-separated) is in the reference list.
+is_bone_reference_protein <- function(protein_ids) {
+  vapply(strsplit(orthologs_of_protein[protein_ids], ";"),
+         function(orthologs) any(toupper(trimws(orthologs)) %in% bone_reference_genes), logical(1))
+}
+overlap_with_bone_reference <- function(tested_proteins, validated_proteins) {
+  n_tested             <- length(tested_proteins)
+  n_reference_tested   <- sum(is_bone_reference_protein(tested_proteins))
+  n_validated          <- length(validated_proteins)
+  n_reference_overlap  <- sum(is_bone_reference_protein(validated_proteins))
+  c(tested_proteins = n_tested, reference_proteins_among_tested = n_reference_tested, reference_protein_overlap = n_reference_overlap,
+    overlap_p_value = phyper(n_reference_overlap - 1, n_reference_tested, n_tested - n_reference_tested, n_validated, lower.tail = FALSE))
+}
+
+# ---- The two statistics for one labelling of the animals --------------------------
+analysis_for_one_labelling <- function(groups) {
+  per_comparison <- lapply(COMPARISONS, function(groups_of_comparison) {
+    result <- tissue_level_deps(groups, groups_of_comparison["diabetic"], groups_of_comparison["nondiabetic"])
+    c(tissue_level_DEPs = length(result$validated_proteins), overlap_with_bone_reference(result$tested_proteins, result$validated_proteins))
+  })
+  empty <- per_comparison[["empty defect"]]; PCL <- per_comparison[["PCL scaffold"]]
+  data.table(t(setNames(empty, paste0(names(empty), "_empty"))), t(setNames(PCL, paste0(names(PCL), "_PCL"))),
+             DEP_count_difference            = unname(empty["tissue_level_DEPs"] - PCL["tissue_level_DEPs"]),           # statistic (1)
+             overlap_significance_difference = unname(log10(PCL["overlap_p_value"]) - log10(empty["overlap_p_value"])))  # statistic (2)
 }
 
 # ---- Observed result and self-check -----------------------------------------------
-observed         <- dep_count_difference(group_of_animal(scaffold_of_animal))
+observed         <- analysis_for_one_labelling(group_of_animal(scaffold_of_animal))
 pipeline_summary <- fread(file.path(threshold_dir, "summary_statistics.csv"))
-stopifnot(observed$tissue_level_DEPs_empty == pipeline_summary[Comparison == paste(COMPARISONS[["empty defect"]], collapse = "-"), Validated_Total],
-          observed$tissue_level_DEPs_PCL   == pipeline_summary[Comparison == paste(COMPARISONS[["PCL scaffold"]], collapse = "-"), Validated_Total])
-cat(sprintf("Self-check passed. Observed: %d vs %d tissue-level DEPs, difference %d\n",
-            observed$tissue_level_DEPs_empty, observed$tissue_level_DEPs_PCL, observed$difference_empty_minus_PCL))
+for (comparison_name in names(COMPARISONS)) {
+  pipeline_row <- pipeline_summary[Comparison == paste(COMPARISONS[[comparison_name]], collapse = "-")]
+  suffix       <- if (comparison_name == "empty defect") "_empty" else "_PCL"
+  tested_in_pipeline <- unlist(lapply(c("AI", "AS"), function(fraction)             # the population of the overlap test
+    fread(sprintf("de_analysis_results_%s_RobNorm_scaled/de_results_raw_with_orthologs.csv", fraction))[Comparison == pipeline_row$Comparison, Protein.IDs]))
+  stopifnot(observed[[paste0("tissue_level_DEPs", suffix)]]               == pipeline_row$Validated_Total,
+            observed[[paste0("tested_proteins", suffix)]]                 == uniqueN(tested_in_pipeline),
+            observed[[paste0("reference_proteins_among_tested", suffix)]] == pipeline_row$Bone_Caps_Tested,
+            observed[[paste0("reference_protein_overlap", suffix)]]       == pipeline_row$Overlap_First_Level + pipeline_row$Overlap_Second_Level)
+}
+cat(sprintf("Self-check passed. Observed: %d vs %d tissue-level DEPs (difference %d); overlap %d of %d tested (p = %.2g) vs %d of %d (p = %.2g), significance difference %.2f\n",
+            observed$tissue_level_DEPs_empty, observed$tissue_level_DEPs_PCL, observed$DEP_count_difference,
+            observed$reference_protein_overlap_empty, observed$tested_proteins_empty, observed$overlap_p_value_empty,
+            observed$reference_protein_overlap_PCL,   observed$tested_proteins_PCL,   observed$overlap_p_value_PCL, observed$overlap_significance_difference))
 
 # ---- Permutations -----------------------------------------------------------------
 set.seed(SEED)
@@ -163,16 +205,17 @@ permuted_scaffold_labels <- t(replicate(N_PERMUTATIONS, {      # one relabelling
 cat(sprintf("Running %d permutations on %d cores ...\n", N_PERMUTATIONS, N_CORES))
 permutations <- rbindlist(mclapply(seq_len(N_PERMUTATIONS), function(permutation_number)
   cbind(data.table(permutation = permutation_number),
-        dep_count_difference(group_of_animal(permuted_scaffold_labels[permutation_number, ]))), mc.cores = N_CORES))
+        analysis_for_one_labelling(group_of_animal(permuted_scaffold_labels[permutation_number, ]))), mc.cores = N_CORES))
 fwrite(permutations, file.path(output_dir, "permutations.csv"))
 
-# ---- p-value -----------------------------------------------------------------------
-at_least_as_large <- permutations$difference_empty_minus_PCL >= observed$difference_empty_minus_PCL
-summary_table <- data.table(
-  statistic = "tissue-level DEPs empty defect minus PCL scaffold",
-  observed  = observed$difference_empty_minus_PCL,
-  null_mean = mean(permutations$difference_empty_minus_PCL),
-  p_value = (sum(at_least_as_large) + 1) / (N_PERMUTATIONS + 1),
-  n_permutations = N_PERMUTATIONS)
+# ---- p-values ----------------------------------------------------------------------
+summarise_statistic <- function(name) {
+  at_least_as_large <- permutations[[name]] >= observed[[name]]
+  data.table(statistic = name, observed = observed[[name]],
+             null_mean = mean(permutations[[name]]),
+             null_2.5_percentile  = quantile(permutations[[name]], 0.025), null_97.5_percentile = quantile(permutations[[name]], 0.975),
+             p_value = (sum(at_least_as_large) + 1) / (N_PERMUTATIONS + 1), n_permutations = N_PERMUTATIONS)
+}
+summary_table <- rbind(summarise_statistic("DEP_count_difference"), summarise_statistic("overlap_significance_difference"))
 fwrite(summary_table, file.path(output_dir, "summary.csv"))
 print(summary_table)
