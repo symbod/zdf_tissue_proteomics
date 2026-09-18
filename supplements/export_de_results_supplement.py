@@ -34,8 +34,8 @@ README = pd.DataFrame([
     ("adj.P.Val",   "BH-adjusted p-value."),
     ("Change",      "Up / Down / No Change."),
     ("Comparison",  "Comparison identifier."),
-    ("Assay",       "Proteomics fraction."),
-    ("IDs",         "Harmonized gene identifiers."),
+    ("Assay",       "Normalized data the analysis was run on (RobNorm_scaled in all rows); the fraction is given by the sheet name."),
+    ("IDs",         "Running row number of the protein in the dataset, assigned by PRONE; no biological meaning."),
     ("Orthologs",   "Human ortholog gene symbols."),
 ], columns=["_", "__"])
 

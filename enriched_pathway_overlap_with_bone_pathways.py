@@ -291,7 +291,7 @@ README = pd.DataFrame([
     ("",            ""),
     ("Column name", "Description"),
     ("AR threshold",               "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
-    ("ΔAR",                        "Stability threshold: minimum ratio of group-level geometric mean abundance ratios required for a second-level DEP to be considered stable across groups."),
+    ("ΔAR",                        "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DEP to be considered stable across groups."),
     ("Significant terms (N) | Tissue level DEPs",            "Significantly enriched pathways (q-value < 0.05), tissue-level DEPs."),
     ("Significant terms (N) | Tissue level DEPs + network",  "Significantly enriched pathways (q-value < 0.05), tissue-level DEPs + network proteins."),
     ("Significant terms (N) | First level DEPs",             "Significantly enriched pathways (q-value < 0.05), first-level DEPs."),

@@ -21,11 +21,12 @@ The unprocessed proteomics data is not provided in this repository.
 5. `ppi_enrichment_must.py`: connector proteins that link the tissue-level DEPs in the human PPI network (Drugst.One, Multi-Steiner tree).
 6. `pathway_enrichment.R`: GO and KEGG enrichment of the first-level DEPs, the tissue-level DEPs and the tissue-level DEPs with connector proteins (clusterProfiler).
 7. Figures and overlap tests:
-   - `AI_AS_proteome_investigation.py`: proteins detected and their abundances in AI vs. AS (Figure 5)
-   - `AI_AS_dep_per_fraction_investigation.py`: DEPs per fraction and their classification (Figure 6)
-   - `protein_sets_overlap_bone_CAPs.py`: overlap of the protein sets with the bone-healing reference proteins (Figure 7, Supplementary Table S4)
-   - `enriched_pathway_overlap_with_bone_pathways.py`: overlap of the enriched terms with the bone-healing reference pathways (Figure 8, Supplementary Table S6)
-   - `figure_pathway_hierarchy.py`: top enriched terms per protein set and comparison (Figure 9)
+   - `AI_AS_proteome_investigation.py`: proteins detected and their abundances in AI vs. AS (Figure 4)
+   - `AI_AS_dep_per_fraction_investigation.py`: DEPs per fraction and their classification (Figure 5)
+   - `protein_sets_overlap_bone_CAPs.py`: overlap of the protein sets with the bone-healing reference proteins (Figure 6, Supplementary Table S4)
+   - `scaffold_label_permutation_test.R`: permutation test of the differences between the two comparisons in the number of tissue-level DEPs and in their overlap significance (Section 3.3)
+   - `enriched_pathway_overlap_with_bone_pathways.py`: overlap of the enriched terms with the bone-healing reference pathways (Figure 7, Supplementary Table S6)
+   - `figure_pathway_hierarchy.py`: top enriched terms per protein set and comparison (Figure 8)
 8. `drug_repurposing.py`: drug candidates by TrustRank on the NeDRex network (Drugst.One, Supplementary Table S7).
 9. `supplements/export_*.py`: Supplementary Tables S1, S2, S3 and S5.
 

@@ -27,7 +27,7 @@ README = pd.DataFrame([
     ("",                     ""),
     ("Threshold",            "Description"),
     ("AR",                   "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
-    ("ΔAR",                  "Stability threshold: minimum ratio of group-level geometric mean abundance ratios required for a second-level DEP to be considered stable across groups."),
+    ("ΔAR",                  "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DEP to be considered stable across groups."),
     ("",                     ""),
     ("Column name",          "Description"),
     ("Protein.IDs",          "UniProt accessions."),
