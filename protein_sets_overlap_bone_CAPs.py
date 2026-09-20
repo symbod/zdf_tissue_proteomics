@@ -133,6 +133,10 @@ for fc in FC_THRESHOLDS:
             PROTEIN_N[comp_label]     = [s3, s1, s2]
             protein_pvals[comp_label] = [p3, p1, p2]
 
+            # Same sets by name; their overlap with the reference proteins is listed in the supplement
+            gene_set_of = {"First-level DEPs": first_lvl, "Tissue-level DEPs": tissue_lvl,
+                           "Tissue-level DEPs + connector proteins": tissue_lvl | exc_prots}
+
             for set_label, pop, succ, s, o, p in [
                 ("Tissue-level DEPs",                     M,  n,  s1, o1, p1),
                 ("Tissue-level DEPs + connector proteins", M2, n2, s2, o2, p2),
@@ -150,6 +154,7 @@ for fc in FC_THRESHOLDS:
                     "Bone-healing reference protein overlap (k)":    o,
                     "Expected overlap":         expected,
                     "p-value":                  p,
+                    "Overlapping proteins":     "; ".join(sorted(gene_set_of[set_label] & bone_caps)),
                 })
 
             print(f"\n{comp_label}:  population M={M} (successes n={n})")
@@ -196,6 +201,7 @@ for fc in FC_THRESHOLDS:
                 "Bone-healing reference protein overlap (k)":    o,
                 "Expected overlap":         round((len(shared) * succ) / pop, 2) if pop > 0 else 0,
                 "p-value":                  p,
+                "Overlapping proteins":     "; ".join(sorted(shared & bone_caps)),
             })
         print(f"\nShared:  population M={M_shared} (successes n={n_shared})  "
               f"N={PROTEIN_N['Shared']}  p={['%.3e' % p for p in protein_pvals['Shared']]}")
@@ -330,6 +336,9 @@ README = pd.DataFrame([
     ("p-value | Tissue-level DEPs",                    "Hypergeometric p-value, tissue-level DEPs."),
     ("p-value | Tissue-level DEPs + connector proteins","Hypergeometric p-value, tissue-level DEPs + connectors."),
     ("p-value | First-level DEPs",                     "Hypergeometric p-value, first-level DEPs."),
+    ("Overlapping proteins | Tissue-level DEPs",                    "Bone-healing reference proteins (human gene symbols) among the tissue-level DEPs. k counts protein groups, so two protein groups of the same reference protein are listed once."),
+    ("Overlapping proteins | Tissue-level DEPs + connector proteins","Bone-healing reference proteins among the tissue-level DEPs + connectors."),
+    ("Overlapping proteins | First-level DEPs",                     "Bone-healing reference proteins among the first-level DEPs."),
 ], columns=["_", "__"])
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
@@ -340,10 +349,10 @@ with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
         pivot  = subset.pivot(
             index=["AR threshold", "ΔAR"],
             columns="Protein set",
-            values=["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value"],
+            values=["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
         )
         pivot = pivot.reindex(columns=pd.MultiIndex.from_product([
-            ["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value"],
+            ["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
             PROTEIN_SET_ORDER,
         ]))
         pivot.columns = [f"{metric} | {pset}" for metric, pset in pivot.columns]

@@ -45,6 +45,7 @@ GROUP_GAP  = 0.08
 
 # Load bone reference pathways once (shared across all threshold combinations)
 bone_pathways = set(pd.read_csv(BONE_FILE)["term_id"].dropna())
+term_names    = {}   # pathway ID -> term name as in the enrichment results, to list the overlapping terms by name
 
 print(f"Bone meta-analysis: {len(bone_pathways)} pathways\n")
 
@@ -95,6 +96,7 @@ for fc in FC_THRESHOLDS:
                 sig_pathways      = set(sig_df["ID"].dropna().map(normalize_pathway_id))
                 overlap_complete  = bone_pathways & complete_pathways
                 overlap_sig       = bone_pathways & sig_pathways
+                term_names.update(zip(df["ID"].map(normalize_pathway_id), df["Description"]))
 
                 M = len(complete_pathways)
                 n = len(overlap_complete)
@@ -118,6 +120,7 @@ for fc in FC_THRESHOLDS:
                     "Bone terms significant (k)": k,
                     "Expected overlap":      round(expected, 2),
                     "p-value":               p,
+                    "Overlapping terms":     "; ".join(sorted(f"{term_names[t]} ({t})" for t in overlap_sig)),
                 })
 
                 n_sig_list.append(N)
@@ -165,6 +168,7 @@ for fc in FC_THRESHOLDS:
                 "Bone terms significant (k)": k,
                 "Expected overlap":      round(expected, 2),
                 "p-value":               p,
+                "Overlapping terms":     "; ".join(sorted(f"{term_names[t]} ({t})" for t in bone_pathways & shared)),
             })
 
             print(f"\n  Shared / {set_dir}:")
@@ -304,6 +308,9 @@ README = pd.DataFrame([
     ("p-value | Tissue level DEPs",           "Hypergeometric p-value, tissue-level DEPs."),
     ("p-value | Tissue level DEPs + network", "Hypergeometric p-value, tissue-level DEPs + network proteins."),
     ("p-value | First level DEPs",            "Hypergeometric p-value, first-level DEPs."),
+    ("Overlapping terms | Tissue level DEPs",           "The k significant pathways that are bone-healing reference pathways, as term name (ID), tissue-level DEPs."),
+    ("Overlapping terms | Tissue level DEPs + network", "The k significant pathways that are bone-healing reference pathways, tissue-level DEPs + network proteins."),
+    ("Overlapping terms | First level DEPs",            "The k significant pathways that are bone-healing reference pathways, first-level DEPs."),
 ], columns=["_", "__"])
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
@@ -314,7 +321,7 @@ with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
         pivot  = subset.pivot(
             index=["AR threshold", "ΔAR"],
             columns="Protein set",
-            values=["Significant terms (N)", "Bone terms significant (k)", "Expected overlap", "p-value"],
+            values=["Significant terms (N)", "Bone terms significant (k)", "Expected overlap", "p-value", "Overlapping terms"],
         )
         pivot.columns = [f"{metric} | {pset}" for metric, pset in pivot.columns]
         pivot = pivot.reset_index()
