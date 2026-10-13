@@ -1,5 +1,5 @@
 ---
-title: 'DE Analysis of Proteomics Data'
+title: 'DA Analysis of Proteomics Data'
 author: "Jan-Ole Schulze"
 date: "`r format(Sys.time(), '%d %B, %Y')`"
 output: 
@@ -86,7 +86,7 @@ cat("Available assays in the SummarizedExperiment object:\n")
 print(names(assays(se)))
 ```
 
-# Differential Expression Analysis
+# Differential Abundance Analysis
 
 ## Prepare Data
 In this section, we prepare our dataset for analysis, crucial for comparing different experimental conditions and timepoints in biological research.
@@ -131,20 +131,20 @@ comparison_labels <- c(
 )
 ```
 
-# Run DE Analysis with Protein Filtering 
-The `run_DE` function performs DE analysis on the proteomics data within our `SummarizedExperiment` object (`se`). This function is adeptly suited for proteomics data and includes several important parameters:
+# Run DA Analysis with Protein Filtering 
+The `run_DE` function performs DA analysis on the proteomics data within our `SummarizedExperiment` object (`se`). This function is adeptly suited for proteomics data and includes several important parameters:
 
 **Main Parameters**
 - `se`: Our `SummarizedExperiment` object, containing the normalized proteomics dataset and relevant metadata.
-- `comparisons`: A vector of specified condition pairs for analysis, aimed at detecting significant expression changes between these pairs.
-- `DE_method`: The method for DE analysis.
+- `comparisons`: A vector of specified condition pairs for analysis, aimed at detecting significant abundance changes between these pairs.
+- `DE_method`: The method for DA analysis.
 
 **Additional Parameters Explained**
 - `logFC`: A Boolean parameter indicating whether to apply a log fold change (logFC) threshold. If `TRUE`, only proteins with changes exceeding the specified logFC thresholds are considered significant.
 - `logFC_up` and `logFC_down`: These specify the upper and lower thresholds for log2 fold change, defining upregulated and downregulated proteins, respectively.
 - `p_adj`: A Boolean parameter indicating whether to use adjusted p-values (`TRUE`) or raw p-values (`FALSE`) for significance thresholding.
 - `alpha`: The threshold for significance, applied to adjusted or raw p-values based on p_adj.
-- `B` and `K`: Parameters specific to the ROTS method in DE analysis. `B` is the number of bootstraps, enhancing the robustness of the analysis, while `K` represents the number of top-ranked features considered for optimizing reproducibility.
+- `B` and `K`: Parameters specific to the ROTS method in DA analysis. `B` is the number of bootstraps, enhancing the robustness of the analysis, while `K` represents the number of top-ranked features considered for optimizing reproducibility.
 
 The Limma design matrix will look like this, because R automatically expands the single column:
          diabetic_empty_42  nondiabetic_empty_42  diabetic_PCL_42  ...
@@ -210,7 +210,7 @@ filter_proteins_by_group <- function(se, comparison, condition_column, min_sampl
   return(se[valid_proteins, ])
 }
 
-# Function to run DE analysis with pre-filtering
+# Function to run DA analysis with pre-filtering
 # NOTE: Protein filtering is performed independently for each comparison
 # A protein is included in analysis if it has ≥3 non-NA values in BOTH groups
 # This means different comparisons may test different numbers of proteins
@@ -232,7 +232,7 @@ run_DE_with_filtering <- function(se, comparisons, condition_column, min_samples
       filtered_proteins_per_comparison[[comparison]] <- rowData(se_filtered)$Protein.IDs
     }
     
-    # Run DE analysis on filtered data
+    # Run DA analysis on filtered data
     de_result <- run_DE(se = se_filtered, 
                        comparisons = comparison,  # Single comparison
                        ain = c(assay_to_use, extra_assays),
@@ -270,10 +270,10 @@ de_results <- de_results_all[de_results_all$Assay == primary_norm_method, ]
 ```
 
 ## Visualize Results
-The `plot_volcano_DE` function is designed to create informative volcano plots from the DE results:
-- `de_res`: This is the data table obtained from the `run_DE` function, containing detailed DE results for each protein in the study.
-- `ain`: A vector specifying the normalization methods to visualize. These should be methods already applied in the DE analysis and present in `de_res`.
-- `comparisons`: The specific comparisons for which we want to generate volcano plots. These should align with the comparisons used in the DE analysis.
+The `plot_volcano_DE` function is designed to create informative volcano plots from the DA results:
+- `de_res`: This is the data table obtained from the `run_DE` function, containing detailed DA results for each protein in the study.
+- `ain`: A vector specifying the normalization methods to visualize. These should be methods already applied in the DA analysis and present in `de_res`.
+- `comparisons`: The specific comparisons for which we want to generate volcano plots. These should align with the comparisons used in the DA analysis.
 - `facet_norm`: A Boolean parameter that decides if the plots should be faceted (i.e., split into separate panels) by normalization method. Setting this to `FALSE` leads to a more consolidated view.
 - `facet_comparison`: Another Boolean parameter that controls whether to facet by comparison. This is particularly useful when facet_norm is `FALSE`, allowing us to compare different condition pairs side-by-side.
 
@@ -318,7 +318,7 @@ print(paste("Range:", round(min(de_results$logFC, na.rm=TRUE), 2), "to", round(m
 
 
 ### Save Results
-We save the raw differential expression results as `de_results_raw.csv` for record-keeping and future reference. The results are then merged with the human ortholog annotations carried by the input data, creating a comprehensive dataset named `de_results_with_orthologs`. This enriched dataset is also preserved in a CSV file, `de_results_raw_with_orthologs.csv`, ensuring all critical data and insights are securely stored and accessible for subsequent analysis or review.
+We save the raw differential abundance results as `de_results_raw.csv` for record-keeping and future reference. The results are then merged with the human ortholog annotations carried by the input data, creating a comprehensive dataset named `de_results_with_orthologs`. This enriched dataset is also preserved in a CSV file, `de_results_raw_with_orthologs.csv`, ensuring all critical data and insights are securely stored and accessible for subsequent analysis or review.
 
 ```{r}
 # Save de_results to de_results_raw.csv
@@ -330,7 +330,7 @@ print(names(de_results))
 # Extract orthologs from the original protein data
 orthologs_data <- prot_data[, c("Protein.IDs", "Gene.Names", "Orthologs")]
 
-# Merge orthologs information with raw DE results
+# Merge orthologs information with raw DA results
 de_results_with_orthologs <- merge(de_results, 
                                   orthologs_data, 
                                   by = c("Protein.IDs", "Gene.Names"), 
@@ -340,10 +340,10 @@ de_results_with_orthologs <- merge(de_results,
 write.csv(de_results_with_orthologs, file.path(final_out_dir, "de_results_raw_with_orthologs.csv"), row.names = FALSE)
 ```
 
-## Get DEPs
-We next focus on isolating differentially expressed proteins (DEPs) from our analysis results. By filtering the DE results, we identify proteins with significant expression changes, categorizing them as DEPs. These are proteins where the expression change is notable and not classified as "No Change." After isolating these significant results, we save them as `de_results_significant.csv`. This step is crucial for honing in on the most impactful proteins that show significant differential expression, which are potential candidates for further biological investigation or validation studies.
+## Get DAPs
+We next focus on isolating differentially abundant proteins (DAPs) from our analysis results. By filtering the DA results, we identify proteins with significant expression changes, categorizing them as DAPs. These are proteins where the expression change is notable and not classified as "No Change." After isolating these significant results, we save them as `de_results_significant.csv`. This step is crucial for honing in on the most impactful proteins that show significant differential abundance, which are potential candidates for further biological investigation or validation studies.
 
-### Get Significant DEPs and save results
+### Get Significant DAPs and save results
 ```{r}
 de_results_sig <- de_results[de_results$Change != "No Change"]
 
@@ -351,13 +351,13 @@ write.csv(de_results_sig, file.path(final_out_dir, "de_results_significant.csv")
 ```
 
 ```{r}
-# Count total significant DEPs
+# Count total significant DAPs
 total_sig_deps <- nrow(de_results_sig)
 cat("=== SUMMARY OF DIFFERENTIALLY EXPRESSED PROTEINS ===\n\n")
-cat("Total significant DEPs across all comparisons:", total_sig_deps, "\n\n")
+cat("Total significant DAPs across all comparisons:", total_sig_deps, "\n\n")
 
-# Count DEPs per comparison
-cat("DEPs per comparison:\n")
+# Count DAPs per comparison
+cat("DAPs per comparison:\n")
 deps_per_comparison <- table(de_results_sig$Comparison)
 print(deps_per_comparison)
 cat("\n")
@@ -376,7 +376,7 @@ for (m in diagnostic_norm_methods) {
   n_mismatch <- sum(is.na(as.matrix(assays(se)[[m]])) !=
                     is.na(as.matrix(assays(se)[[primary_norm_method]])))
   if (n_mismatch > 0)
-    stop(sprintf("Assay '%s' differs from '%s' in %d missing values, so their DE ",
+    stop(sprintf("Assay '%s' differs from '%s' in %d missing values, so their DA ",
                  m, primary_norm_method, n_mismatch),
          "results are not computed on the same proteins and cannot be compared.")
 }

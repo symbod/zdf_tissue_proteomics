@@ -1,11 +1,11 @@
 """
-Exports the DE analysis results (all tested proteins, including non-significant)
+Exports the DA analysis results (all tested proteins, including non-significant)
 with ortholog annotations for AI and AS fractions into a single Excel file,
 for use as a supplement.
 
 Output: de_results_supplement.xlsx
-  - Sheet "AI DE results" : full DE results for the AI fraction
-  - Sheet "AS DE results" : full DE results for the AS fraction
+  - Sheet "AI DA results" : full DA results for the AI fraction
+  - Sheet "AS DA results" : full DA results for the AS fraction
 """
 
 import os
@@ -23,8 +23,8 @@ as_de = pd.read_csv(AS_DE)
 
 README = pd.DataFrame([
     ("Sheet name",  "Content"),
-    ("AI DE results", "Limma DE results, AI fraction."),
-    ("AS DE results", "Limma DE results, AS fraction."),
+    ("AI DA results", "Limma DA results, AI fraction."),
+    ("AS DA results", "Limma DA results, AS fraction."),
     ("",            ""),
     ("Column name", "Description"),
     ("Protein.IDs", "UniProt accessions."),
@@ -41,9 +41,9 @@ README = pd.DataFrame([
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
     README.to_excel(writer, sheet_name="README", index=False, header=False, startrow=2)
-    writer.sheets["README"]["A1"] = "Differential Expression Analysis Results"
-    ai_de.to_excel(writer, sheet_name="AI DE results", index=False)
-    as_de.to_excel(writer, sheet_name="AS DE results", index=False)
+    writer.sheets["README"]["A1"] = "Differential Abundance Analysis Results"
+    ai_de.to_excel(writer, sheet_name="AI DA results", index=False)
+    as_de.to_excel(writer, sheet_name="AS DA results", index=False)
 
 print(f"Saved → {OUT_FILE}")
 for label, df in [("AI", ai_de), ("AS", as_de)]:

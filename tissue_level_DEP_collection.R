@@ -35,10 +35,10 @@ meta_as <- read.csv(metadata_file_AS, stringsAsFactors = FALSE)
 meta_proteins <- read.csv("input/bone_caps_meta_analysis.csv", stringsAsFactors = FALSE)
 meta_genes <- unique(toupper(meta_proteins$Gene))
 
-# Read DE results
+# Read DA results
 de_results_AI <- read.csv("de_analysis_results_AI_RobNorm_scaled/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
 de_results_AS <- read.csv("de_analysis_results_AS_RobNorm_scaled/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
-# Filter DE results to only include specified comparisons
+# Filter DA results to only include specified comparisons
 de_results_AI <- de_results_AI[de_results_AI$Comparison %in% names(comparisons_of_interest), ]
 de_results_AS <- de_results_AS[de_results_AS$Comparison %in% names(comparisons_of_interest), ]
 ############################################
@@ -304,7 +304,7 @@ for (fc_thresh in fc_thresholds) {
             pmin(GeoMeanFC_Group1, GeoMeanFC_Group2)
         )
       
-      # DEPs in each fraction
+      # DAPs in each fraction
       deps_ai <- de_results_AI[de_results_AI$Comparison == comp & de_results_AI$Change != "No Change", ]
       deps_as <- de_results_AS[de_results_AS$Comparison == comp & de_results_AS$Change != "No Change", ]
       all_deps <- unique(c(deps_ai$Protein.IDs, deps_as$Protein.IDs))
@@ -378,7 +378,7 @@ for (fc_thresh in fc_thresholds) {
           "; after stability (<= ", stab_thresh, "-fold): ", n_dominant_post_stability,
           "\n", sep = "")
       
-      # Filter to validated DEPs, then build output columns
+      # Filter to validated DAPs, then build output columns
       validated_deps <- validation_table %>%
         filter(!is.na(Validation)) %>%
         mutate(
@@ -410,18 +410,18 @@ for (fc_thresh in fc_thresholds) {
       dominant_removed[[comp]]             <- n_dominant_pre_stability - n_dominant_post_stability
       tested_second_level_per_comp[[comp]] <- tested_second_level
       
-      cat("  Total unique DEPs (AI+AS):", length(all_deps), "\n")
-      cat("  Validated DEPs:", nrow(validated_deps), "\n")
+      cat("  Total unique DAPs (AI+AS):", length(all_deps), "\n")
+      cat("  Validated DAPs:", nrow(validated_deps), "\n")
     }
     
     # ========================================================================
-    # Save validated DEPs
+    # Save validated DAPs
     # ========================================================================
     validated_deps_df <- bind_rows(all_validated_deps)
     write.csv(validated_deps_df,
               file.path(thresh_dir, "validated_DEPs.csv"),
               row.names = FALSE)
-    cat("\nSaved validated DEPs to:", file.path(thresh_dir, "validated_DEPs.csv"), "\n")
+    cat("\nSaved validated DAPs to:", file.path(thresh_dir, "validated_DEPs.csv"), "\n")
     
     # ========================================================================
     # Summary statistics
@@ -429,10 +429,10 @@ for (fc_thresh in fc_thresholds) {
     summary_stats <- data.frame()
     
     for (comp in names(comparisons_of_interest)) {
-      # Bone-healing reference proteins among the proteins tested for DE in either
+      # Bone-regeneration reference proteins among the proteins tested for DA in either
       # fraction. This is the "successes in the population" term of the downstream
       # hypergeometric test, so it must be counted in the same unit as the
-      # population itself (distinct Protein.IDs) and as the draw (validated DEP
+      # population itself (distinct Protein.IDs) and as the draw (validated DAP
       # rows). De-duplicating on the Orthologs *string* instead would collapse
       # distinct proteins that happen to share an ortholog list and undercount it.
       tested_proteins <- rbind(
@@ -534,16 +534,16 @@ for (fc_thresh in fc_thresholds) {
                    "Overlap_First_Level"  = "#A8DADC",
                    "Second_Level_Total"   = "#F77F00",
                    "Overlap_Second_Level" = "#FCBF49"),
-        labels = c("Total Unique DEPs (AI + AS)",
+        labels = c("Total Unique DAPs (AI + AS)",
                    "Overlap Total with Meta-analysis",
-                   "First-Level Validated DEPs",
+                   "First-Level Validated DAPs",
                    "Overlap First-Level with Meta-analysis",
-                   "Second-Level Validated DEPs",
+                   "Second-Level Validated DAPs",
                    "Overlap Second-Level with Meta-analysis")
       ) +
       theme_minimal() +
       labs(
-        title    = "DEPs with Two-Level Validation Strategy",
+        title    = "DAPs with Two-Level Validation Strategy",
         subtitle = paste0("FC >= ", fc_thresh, " | Stability ratio <= ", stab_thresh, "-fold"),
         y        = "Number of Proteins",
         x        = "",

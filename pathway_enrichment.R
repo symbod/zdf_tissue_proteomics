@@ -1,10 +1,10 @@
-# Performs GO and KEGG enrichment analysis on validated DEPs across multiple
+# Performs GO and KEGG enrichment analysis on validated DAPs across multiple
 # FC/stability threshold combinations. Outputs per threshold combination:
 # (1) <comparison>_<set>_enrichment_complete.csv — all tested terms, with a
 #     "Significant" flag (p.adjust < 0.05), and
 # (2) <comparison>_enrichment_summary.csv — per-set counts.
 
-# Enrichment Analysis on Validated DEPs
+# Enrichment Analysis on Validated DAPs
 library(clusterProfiler)
 library(org.Rn.eg.db)
 library(proharmed)
@@ -26,7 +26,7 @@ base_output_dir <- "valid_DEPs/"
 fc_thresholds <- c(4.04, 5.59, 9.32)
 stability_thresholds <- c(1.1, 1.2, 1.3)
 
-# Paths to full DE results for background universe
+# Paths to full DA results for background universe
 ai_base_path <- "de_analysis_results_AI_RobNorm_scaled/"
 as_base_path <- "de_analysis_results_AS_RobNorm_scaled/"
 
@@ -162,17 +162,17 @@ for (fc_thresh in fc_thresholds) {
     thresh_dir <- file.path(base_output_dir, paste0("FC", fc_thresh, "_Stab", stab_thresh))
     validated_deps_file <- file.path(thresh_dir, "validated_DEPs.csv")
     
-    # Check if validated DEPs file exists
+    # Check if validated DAPs file exists
     if (!file.exists(validated_deps_file)) {
       cat("WARNING: No validated_DEPs.csv found for FC", fc_thresh, "Stab", stab_thresh, "\n")
       cat("Skipping this combination...\n")
       next
     }
     
-    # Read validated DEPs
+    # Read validated DAPs
     validated_deps <- read.csv(validated_deps_file, stringsAsFactors = FALSE)
 
-    cat("Loaded", nrow(validated_deps), "validated DEPs across", 
+    cat("Loaded", nrow(validated_deps), "validated DAPs across", 
     length(unique(validated_deps$Comparison)), "comparisons\n\n")
       
     # Process each comparison
@@ -180,13 +180,13 @@ for (fc_thresh in fc_thresholds) {
       cat("\n========================\n")
       cat("Processing comparison:", comparison, "\n")
       
-      # Get validated DEPs for this comparison
+      # Get validated DAPs for this comparison
       comp_deps <- validated_deps[validated_deps$Comparison == comparison, ]
       
-      # First-level DEPs (set 3); sets 1 and 2 use all of comp_deps
+      # First-level DAPs (set 3); sets 1 and 2 use all of comp_deps
       first_level_deps <- comp_deps[grepl("both fractions|Exclusive", comp_deps$Validation), ]
       
-      # Load MUST connector proteins for tissue-level DEPs (both_levels network run)
+      # Load MUST connector proteins for tissue-level DAPs (both_levels network run)
       exception_file <- file.path("network_enrichment_results", comparison, "both_levels", "exception_proteins.csv")
       exception_genes <- NULL
       exception_rat <- NULL
@@ -203,16 +203,16 @@ for (fc_thresh in fc_thresholds) {
       }
 
       # CREATE 3 SETS matching the bone meta-analysis overlap analysis:
-      # Set 1: All tissue-level DEPs (first-level + second-level)
+      # Set 1: All tissue-level DAPs (first-level + second-level)
       set1_genes <- unique(comp_deps$Gene.Names)
 
-      # Set 2: Tissue-level DEPs + MUST connector proteins
+      # Set 2: Tissue-level DAPs + MUST connector proteins
       set2_genes <- set1_genes
       if (!is.null(exception_genes)) {
         set2_genes <- unique(c(set1_genes, exception_rat))
       }
 
-      # Set 3: First-level DEPs only
+      # Set 3: First-level DAPs only
       set3_genes <- unique(first_level_deps$Gene.Names)
 
       # Define the 3 sets
@@ -222,11 +222,11 @@ for (fc_thresh in fc_thresholds) {
         list(name = "set3_first_level", genes = set3_genes)
       )
       
-      # Read FULL DE results to get background universe
+      # Read FULL DA results to get background universe
       ai_file_full <- file.path(ai_base_path, "de_results_raw.csv") 
       as_file_full <- file.path(as_base_path, "de_results_raw.csv")
       
-      # Read full DE results
+      # Read full DA results
       full_ai <- read.csv(ai_file_full)
       full_as <- read.csv(as_file_full)
       

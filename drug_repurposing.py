@@ -27,9 +27,9 @@ PROTEIN_SETS = [
 ]
 
 SET_SCORE_LABELS = {
-    'set1_tissue_level':        'Score (tissue-level DEPs)',
-    'set2_tissue_plus_network': 'Score (tissue-level DEPs + connectors)',
-    'set3_first_level':         'Score (first-level DEPs)',
+    'set1_tissue_level':        'Score (tissue-level DAPs)',
+    'set2_tissue_plus_network': 'Score (tissue-level DAPs + connectors)',
+    'set3_first_level':         'Score (first-level DAPs)',
 }
 
 # Drug search parameters
@@ -50,7 +50,7 @@ PARAMETERS = {
 def get_genes(comparison, protein_set, base_dir, fc_thresh, stab_thresh):
     """Get genes for a specific protein set"""
 
-    # Load validated DEPs
+    # Load validated DAPs
     validated_file = os.path.join(base_dir, f'FC{fc_thresh}_Stab{stab_thresh}', 'validated_DEPs.csv')
     df = pd.read_csv(validated_file)
     df = df[df['Comparison'] == comparison]
@@ -59,11 +59,11 @@ def get_genes(comparison, protein_set, base_dir, fc_thresh, stab_thresh):
     # candidate orthologs); pick one deterministically per protein so seed
     # genes are reproducible rather than depending on upstream mapping order.
     if protein_set == 'set1_tissue_level':
-        # All tissue-level DEPs (first-level + second-level)
+        # All tissue-level DAPs (first-level + second-level)
         genes = [sorted(gene.split(';'))[0] for gene in df['Orthologs'].dropna().tolist()]
 
     elif protein_set == 'set2_tissue_plus_network':
-        # All tissue-level DEPs + connector proteins (from both_levels network run)
+        # All tissue-level DAPs + connector proteins (from both_levels network run)
         genes = [sorted(gene.split(';'))[0] for gene in df['Orthologs'].dropna().tolist()]
 
         exception_file = f'network_enrichment_results/{comparison}/both_levels/exception_proteins.csv'
@@ -75,7 +75,7 @@ def get_genes(comparison, protein_set, base_dir, fc_thresh, stab_thresh):
             print(f"WARNING: Exception file not found: {exception_file}")
 
     elif protein_set == 'set3_first_level':
-        # First-level DEPs only
+        # First-level DAPs only
         df = df[df['Validation'].str.contains('Exclusive to |(same direction)', regex=True)]
         genes = [sorted(gene.split(';'))[0] for gene in df['Orthologs'].dropna().tolist()]
 
@@ -230,14 +230,14 @@ if _supplement_rows:
         ("PCL scaffold", "Diabetic vs. non-diabetic, PCL scaffold."),
         ("",            ""),
         ("Column name", "Description"),
-        ("AR threshold",                       "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
-        ("ΔAR",                                "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DEP to be considered stable across groups."),
+        ("AR threshold",                       "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
+        ("ΔAR",                                "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
         ("Drug",                               "Drug name."),
         ("DrugBank_ID",                        "DrugBank identifier."),
         ("Status",                             "Approval status (e.g. approved, investigational)."),
-        ("Score (tissue-level DEPs)",          "TrustRank score using tissue-level DEPs as seeds."),
-        ("Score (tissue-level DEPs + connectors)", "TrustRank score using tissue-level DEPs + network connectors as seeds."),
-        ("Score (first-level DEPs)",           "TrustRank score using first-level DEPs only as seeds."),
+        ("Score (tissue-level DAPs)",          "TrustRank score using tissue-level DAPs as seeds."),
+        ("Score (tissue-level DAPs + connectors)", "TrustRank score using tissue-level DAPs + network connectors as seeds."),
+        ("Score (first-level DAPs)",           "TrustRank score using first-level DAPs only as seeds."),
         ("Mean score",                         "Mean TrustRank score across all three protein sets. Used for ranking."),
         ("",                                   ""),
         ("Note",                               "Only drugs appearing in the top 100 of all three protein sets are included."),

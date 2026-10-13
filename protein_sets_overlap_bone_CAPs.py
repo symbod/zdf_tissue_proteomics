@@ -17,9 +17,9 @@ COMPARISONS = {
 }
 
 labels = [
-    "First-level\nDEPs",
-    "Tissue-level\nDEPs",
-    "Tissue-level DEPs +\nconnector proteins",
+    "First-level\nDAPs",
+    "Tissue-level\nDAPs",
+    "Tissue-level DAPs +\nconnector proteins",
 ]
 
 COLORS = {
@@ -62,7 +62,7 @@ for fc in FC_THRESHOLDS:
         # Reads:
         #   - summary_statistics.csv  → tissue-level / first-level counts and overlaps
         #   - validated_DEPs.csv      → per-protein gene sets for the "shared" bars
-        #   - DE results              → total tested proteome size per comparison
+        #   - DA results              → total tested proteome size per comparison
         #   - exception_proteins.csv  → connector proteins from both-levels network enrichment
         #   - bone_caps_meta_analysis → reference gene list for hypergeometric test
 
@@ -92,13 +92,13 @@ for fc in FC_THRESHOLDS:
             tested_genes = human_orthologs(tested["Orthologs"])
             _tested[comp_key] = tested
 
-            # Set 1: tissue-level DEPs (first-level + second-level combined)
+            # Set 1: tissue-level DAPs (first-level + second-level combined)
             s1 = int(row["Validated_Both_Fractions"] + row["Validated_Exclusive"] + row["Validated_Second_Level"])
             o1 = int(row["Overlap_First_Level"] + row["Overlap_Second_Level"])
             # hypergeom.sf(k, M, n, N) with n the number of successes in M and N the number of draws
             p1 = hypergeom.sf(o1 - 1, M, n, s1)
 
-            # Set 2: tissue-level DEPs + connector proteins (from both-levels network).
+            # Set 2: tissue-level DAPs + connector proteins (from both-levels network).
             exc_path  = os.path.join(NET_DIR, comp_key, "both_levels", "exception_proteins.csv")
             exc_prots = set(pd.read_csv(exc_path)["Gene"].dropna().str.upper())
             new_conn  = exc_prots - tested_genes
@@ -108,7 +108,7 @@ for fc in FC_THRESHOLDS:
             o2 = o1 + len(exc_prots & bone_caps)
             p2 = hypergeom.sf(o2 - 1, M2, n2, s2)
 
-            # Set 3: first-level DEPs only
+            # Set 3: first-level DAPs only
             s3 = int(row["Validated_Both_Fractions"] + row["Validated_Exclusive"])
             o3 = int(row["Overlap_First_Level"])
             p3 = hypergeom.sf(o3 - 1, M, n, s3)
@@ -117,13 +117,13 @@ for fc in FC_THRESHOLDS:
             cd         = valid_deps[valid_deps["Comparison"] == comp_key]
             first_mask = ~cd["Validation"].str.startswith("Dominant")
             assert first_mask.sum() == s3, (
-                f"{comp_key}: first-level DEP count mismatch — file={first_mask.sum()}, summary={s3}"
+                f"{comp_key}: first-level DAP count mismatch — file={first_mask.sum()}, summary={s3}"
             )
             assert len(cd) == s1, (
-                f"{comp_key}: tissue-level DEP count mismatch — file={len(cd)}, summary={s1}"
+                f"{comp_key}: tissue-level DAP count mismatch — file={len(cd)}, summary={s1}"
             )
             # Cross-comparison "shared" bars are computed on human gene symbols so
-            # that DEPs (measured as rat proteins) and connectors (human interactome
+            # that DAPs (measured as rat proteins) and connectors (human interactome
             # genes) live in one namespace; upper-casing the rat symbols instead
             # would match the two only by spelling coincidence.
             first_lvl  = human_orthologs(cd.loc[first_mask, "Orthologs"])
@@ -134,13 +134,13 @@ for fc in FC_THRESHOLDS:
             protein_pvals[comp_label] = [p3, p1, p2]
 
             # Same sets by name; their overlap with the reference proteins is listed in the supplement
-            gene_set_of = {"First-level DEPs": first_lvl, "Tissue-level DEPs": tissue_lvl,
-                           "Tissue-level DEPs + connector proteins": tissue_lvl | exc_prots}
+            gene_set_of = {"First-level DAPs": first_lvl, "Tissue-level DAPs": tissue_lvl,
+                           "Tissue-level DAPs + connector proteins": tissue_lvl | exc_prots}
 
             for set_label, pop, succ, s, o, p in [
-                ("Tissue-level DEPs",                     M,  n,  s1, o1, p1),
-                ("Tissue-level DEPs + connector proteins", M2, n2, s2, o2, p2),
-                ("First-level DEPs",                      M,  n,  s3, o3, p3),
+                ("Tissue-level DAPs",                     M,  n,  s1, o1, p1),
+                ("Tissue-level DAPs + connector proteins", M2, n2, s2, o2, p2),
+                ("First-level DAPs",                      M,  n,  s3, o3, p3),
             ]:
                 expected = round((s * succ) / pop, 2) if pop > 0 else 0
                 _results.append({
@@ -149,19 +149,19 @@ for fc in FC_THRESHOLDS:
                     "Comparison":               comp_label,
                     "Protein set":              set_label,
                     "Proteome size (M)":        pop,
-                    "Bone-healing reference proteins in proteome (n)": succ,
+                    "Bone-regeneration reference proteins in proteome (n)": succ,
                     "Protein set size (N)":     s,
-                    "Bone-healing reference protein overlap (k)":    o,
+                    "Bone-regeneration reference protein overlap (k)":    o,
                     "Expected overlap":         expected,
                     "p-value":                  p,
                     "Overlapping proteins":     "; ".join(sorted(gene_set_of[set_label] & bone_caps)),
                 })
 
             print(f"\n{comp_label}:  population M={M} (successes n={n})")
-            print(f"  Tissue-level DEPs                  N={s1:>4}  overlap={o1:>3}  p={p1:.3e}")
-            print(f"  Tissue-level DEPs + connectors     N={s2:>4}  overlap={o2:>3}  p={p2:.3e}"
+            print(f"  Tissue-level DAPs                  N={s1:>4}  overlap={o1:>3}  p={p1:.3e}")
+            print(f"  Tissue-level DAPs + connectors     N={s2:>4}  overlap={o2:>3}  p={p2:.3e}"
                   f"   [population expanded to M={M2} by {len(new_conn)} new connectors]")
-            print(f"  First-level DEPs only              N={s3:>4}  overlap={o3:>3}  p={p3:.3e}")
+            print(f"  First-level DAPs only              N={s3:>4}  overlap={o3:>3}  p={p3:.3e}")
 
         # ── Shared proteins (intersection between comparisons) ────────────────
 
@@ -173,7 +173,7 @@ for fc in FC_THRESHOLDS:
 
         # Overlap significance of the shared sets. The population is the proteins
         # tested in both comparisons, counted as above (M = distinct Protein.IDs,
-        # n = those with a bone-healing reference ortholog, cf. Bone_Caps_Tested)
+        # n = those with a bone-regeneration reference ortholog, cf. Bone_Caps_Tested)
         # and expanded by the connectors that are not part of it, as for set 2.
         tested_both = _tested[comp_keys[0]]
         tested_both = tested_both[tested_both["Protein.IDs"].isin(_tested[comp_keys[1]]["Protein.IDs"])]
@@ -182,8 +182,8 @@ for fc in FC_THRESHOLDS:
             lambda o: any(g.strip().upper() in bone_caps for g in o.split(";"))).sum())
         genes_both  = human_orthologs(tested_both["Orthologs"])
         protein_pvals["Shared"] = []
-        for i, set_label in enumerate(["First-level DEPs", "Tissue-level DEPs",
-                                       "Tissue-level DEPs + connector proteins"]):
+        for i, set_label in enumerate(["First-level DAPs", "Tissue-level DAPs",
+                                       "Tissue-level DAPs + connector proteins"]):
             shared    = _gene_sets[comp_keys[0]][i] & _gene_sets[comp_keys[1]][i]
             new_conn  = shared - genes_both   # only connectors can be missing from the tested proteome
             pop, succ = M_shared + len(new_conn), n_shared + len(new_conn & bone_caps)
@@ -196,9 +196,9 @@ for fc in FC_THRESHOLDS:
                 "Comparison":               "Shared",
                 "Protein set":              set_label,
                 "Proteome size (M)":        pop,
-                "Bone-healing reference proteins in proteome (n)": succ,
+                "Bone-regeneration reference proteins in proteome (n)": succ,
                 "Protein set size (N)":     len(shared),
-                "Bone-healing reference protein overlap (k)":    o,
+                "Bone-regeneration reference protein overlap (k)":    o,
                 "Expected overlap":         round((len(shared) * succ) / pop, 2) if pop > 0 else 0,
                 "p-value":                  p,
                 "Overlapping proteins":     "; ".join(sorted(shared & bone_caps)),
@@ -274,7 +274,7 @@ for fc in FC_THRESHOLDS:
         ax_b.text(-0.55, sig_line + ymax_b * 0.02, "p = 0.05",
                   ha="left", va="bottom", fontsize=8, color=LINE_COLOR)
 
-        ax_b.set_ylabel("−log₁₀(p-value)\n(overlap with bone-healing reference proteins)", fontsize=10, labelpad=6)
+        ax_b.set_ylabel("−log₁₀(p-value)\n(overlap with bone-regeneration\nreference proteins)", fontsize=10, labelpad=6)
         ax_b.set_ylim(0, ymax_b)
         ax_b.set_xlim(-0.6, len(labels) - 0.4)
         ax_b.tick_params(axis="y", labelsize=9)
@@ -305,9 +305,9 @@ for fc in FC_THRESHOLDS:
 # ── Supplement export ─────────────────────────────────────────────────────────
 
 PROTEIN_SET_ORDER = [
-    "Tissue-level DEPs",
-    "Tissue-level DEPs + connector proteins",
-    "First-level DEPs",
+    "Tissue-level DAPs",
+    "Tissue-level DAPs + connector proteins",
+    "First-level DAPs",
 ]
 
 results_df = pd.DataFrame(_results)
@@ -322,37 +322,37 @@ README = pd.DataFrame([
     ("Shared",       "Proteins shared between both comparisons"),
     ("",             ""),
     ("Column name",  "Description"),
-    ("AR threshold",              "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
-    ("ΔAR",                       "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DEP to be considered stable across groups."),
-    ("Protein set size (N) | Tissue-level DEPs",                    "Number of tissue-level DEPs."),
-    ("Protein set size (N) | Tissue-level DEPs + connector proteins","Number of tissue-level DEPs + network connector proteins."),
-    ("Protein set size (N) | First-level DEPs",                     "Number of first-level DEPs."),
-    ("Bone-healing reference protein overlap (k) | Tissue-level DEPs",                    "Tissue-level DEPs also in the bone-healing reference proteins."),
-    ("Bone-healing reference protein overlap (k) | Tissue-level DEPs + connector proteins","Tissue-level DEPs + connectors also in the bone-healing reference proteins."),
-    ("Bone-healing reference protein overlap (k) | First-level DEPs",                     "First-level DEPs also in the bone-healing reference proteins."),
-    ("Expected overlap | Tissue-level DEPs",                    "Expected overlap under hypergeometric null, tissue-level DEPs."),
-    ("Expected overlap | Tissue-level DEPs + connector proteins","Expected overlap under hypergeometric null, tissue-level DEPs + connectors."),
-    ("Expected overlap | First-level DEPs",                     "Expected overlap under hypergeometric null, first-level DEPs."),
-    ("p-value | Tissue-level DEPs",                    "Hypergeometric p-value, tissue-level DEPs."),
-    ("p-value | Tissue-level DEPs + connector proteins","Hypergeometric p-value, tissue-level DEPs + connectors."),
-    ("p-value | First-level DEPs",                     "Hypergeometric p-value, first-level DEPs."),
-    ("Overlapping proteins | Tissue-level DEPs",                    "Bone-healing reference proteins (human gene symbols) among the tissue-level DEPs. k counts protein groups, so two protein groups of the same reference protein are listed once."),
-    ("Overlapping proteins | Tissue-level DEPs + connector proteins","Bone-healing reference proteins among the tissue-level DEPs + connectors."),
-    ("Overlapping proteins | First-level DEPs",                     "Bone-healing reference proteins among the first-level DEPs."),
+    ("AR threshold",              "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
+    ("ΔAR",                       "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
+    ("Protein set size (N) | Tissue-level DAPs",                    "Number of tissue-level DAPs."),
+    ("Protein set size (N) | Tissue-level DAPs + connector proteins","Number of tissue-level DAPs + network connector proteins."),
+    ("Protein set size (N) | First-level DAPs",                     "Number of first-level DAPs."),
+    ("Bone-regeneration reference protein overlap (k) | Tissue-level DAPs",                    "Tissue-level DAPs also in the bone-regeneration reference proteins."),
+    ("Bone-regeneration reference protein overlap (k) | Tissue-level DAPs + connector proteins","Tissue-level DAPs + connectors also in the bone-regeneration reference proteins."),
+    ("Bone-regeneration reference protein overlap (k) | First-level DAPs",                     "First-level DAPs also in the bone-regeneration reference proteins."),
+    ("Expected overlap | Tissue-level DAPs",                    "Expected overlap under hypergeometric null, tissue-level DAPs."),
+    ("Expected overlap | Tissue-level DAPs + connector proteins","Expected overlap under hypergeometric null, tissue-level DAPs + connectors."),
+    ("Expected overlap | First-level DAPs",                     "Expected overlap under hypergeometric null, first-level DAPs."),
+    ("p-value | Tissue-level DAPs",                    "Hypergeometric p-value, tissue-level DAPs."),
+    ("p-value | Tissue-level DAPs + connector proteins","Hypergeometric p-value, tissue-level DAPs + connectors."),
+    ("p-value | First-level DAPs",                     "Hypergeometric p-value, first-level DAPs."),
+    ("Overlapping proteins | Tissue-level DAPs",                    "Bone-regeneration reference proteins (human gene symbols) among the tissue-level DAPs. k counts protein groups, so two protein groups of the same reference protein are listed once."),
+    ("Overlapping proteins | Tissue-level DAPs + connector proteins","Bone-regeneration reference proteins among the tissue-level DAPs + connectors."),
+    ("Overlapping proteins | First-level DAPs",                     "Bone-regeneration reference proteins among the first-level DAPs."),
 ], columns=["_", "__"])
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
     README.to_excel(writer, sheet_name="README", index=False, header=False, startrow=2)
-    writer.sheets["README"]["A1"] = "Protein Set Overlap with Bone-Healing Reference Proteins"
+    writer.sheets["README"]["A1"] = "Protein Set Overlap with Bone-Regeneration Reference Proteins"
     for comp_label in [*COMPARISONS.values(), "Shared"]:
         subset = results_df[results_df["Comparison"] == comp_label].drop(columns="Comparison")
         pivot  = subset.pivot(
             index=["AR threshold", "ΔAR"],
             columns="Protein set",
-            values=["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
+            values=["Protein set size (N)", "Bone-regeneration reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
         )
         pivot = pivot.reindex(columns=pd.MultiIndex.from_product([
-            ["Protein set size (N)", "Bone-healing reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
+            ["Protein set size (N)", "Bone-regeneration reference protein overlap (k)", "Expected overlap", "p-value", "Overlapping proteins"],
             PROTEIN_SET_ORDER,
         ]))
         pivot.columns = [f"{metric} | {pset}" for metric, pset in pivot.columns]

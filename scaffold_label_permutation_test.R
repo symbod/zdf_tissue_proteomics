@@ -3,8 +3,8 @@
 #
 # QUESTION
 #   The empty-defect comparison (diabetic vs non-diabetic) yields more tissue-level
-#   DEPs than the PCL comparison (148 vs 106), and its tissue-level DEPs overlap
-#   more significantly with the bone-healing reference proteins (p = 2.4e-5 vs
+#   DAPs than the PCL comparison (148 vs 106), and its tissue-level DAPs overlap
+#   more significantly with the bone-regeneration reference proteins (p = 2.4e-5 vs
 #   0.018). If the scaffold made no difference to how diabetes affects the
 #   proteome, how often would an analysis like ours produce differences at least
 #   this large?
@@ -16,11 +16,11 @@
 #
 # INPUT   normalization_results_{AI,AS}/scaled/RobNorm_scaled_normalized_data.csv + meta_data.csv
 #         normalization_results_{AI,AS}/RobNorm_normalized_data.csv + meta_data.csv
-#         input/bone_caps_meta_analysis.csv                                        bone-healing reference proteins
+#         input/bone_caps_meta_analysis.csv                                        bone-regeneration reference proteins
 #         valid_DEPs/FC5.59_Stab1.2/summary_statistics.csv                          } self-check only
 #         de_analysis_results_{AI,AS}_RobNorm_scaled/de_results_raw_with_orthologs.csv }
 # OUTPUT  valid_DEPs/FC5.59_Stab1.2/scaffold_label_permutation_test/
-#         permutations.csv   per permutation and comparison: tissue-level DEPs, tested proteins, bone-healing
+#         permutations.csv   per permutation and comparison: tissue-level DAPs, tested proteins, bone-regeneration
 #                            reference proteins among them, overlap p-value; and the two statistics
 #         summary.csv        observed value, null distribution and p-value of both statistics
 # ==============================================================================
@@ -40,7 +40,7 @@ output_dir    <- file.path(threshold_dir, "scaffold_label_permutation_test")
 dir.create(output_dir, recursive = TRUE, showWarnings = FALSE)
 
 # ---- Data --------------------------------------------------------------------
-# The DE input as SummarizedExperiment, built like the DE notebook
+# The DA input as SummarizedExperiment, built like the DA notebook
 load_de_input <- function(fraction) {
   directory    <- sprintf("normalization_results_%s/scaled", fraction)
   protein_data <- fread(file.path(directory, "RobNorm_scaled_normalized_data.csv"))
@@ -80,13 +80,13 @@ background_ratios <- 2^abs(unscaled_intensity$AI - unscaled_intensity$AS)       
 stopifnot(round(quantile(background_ratios, 0.80, na.rm = TRUE), 2) == ABUNDANCE_RATIO_THRESHOLD)
 RATIO_IF_ONE_FRACTION_ONLY <- quantile(background_ratios, 0.99, na.rm = TRUE)
 
-# Human orthologs of every protein (identical in both fractions) and the bone-healing reference genes
+# Human orthologs of every protein (identical in both fractions) and the bone-regeneration reference genes
 ortholog_table       <- unique(rbind(fread("normalization_results_AI/scaled/RobNorm_scaled_normalized_data.csv")[, .(Protein.IDs, Orthologs)],
                                      fread("normalization_results_AS/scaled/RobNorm_scaled_normalized_data.csv")[, .(Protein.IDs, Orthologs)]))
 orthologs_of_protein <- setNames(ortholog_table$Orthologs, ortholog_table$Protein.IDs)
 bone_reference_genes <- unique(toupper(fread("input/bone_caps_meta_analysis.csv")$Gene))
 
-# ---- Step 1: differential expression (the DE notebook) ---------------------------
+# ---- Step 1: differential abundance (the DA notebook) ---------------------------
 differential_expression <- function(summarized_experiment, groups, diabetic_group, nondiabetic_group) {
   colData(summarized_experiment)$Cond_Scaffold_Time <- unname(groups[colData(summarized_experiment)$Animal])
   intensities     <- as.matrix(assays(summarized_experiment)[["RobNorm_scaled"]])
@@ -101,7 +101,7 @@ differential_expression <- function(summarized_experiment, groups, diabetic_grou
        deps            = as.data.table(de_result)[Change != "No Change", .(Protein.IDs, Direction = as.character(Change))])
 }
 
-# ---- Step 2: tissue-level DEPs (tissue_level_DEP_collection.R) ------------------
+# ---- Step 2: tissue-level DAPs (tissue_level_DEP_collection.R) ------------------
 # Per-protein summary of the AI/AS relationship over the AI/AS sample pairs of a set of animals
 ratio_summary <- function(animals_subset) {
   intensity_AI <- unscaled_intensity$AI[, animals_subset, drop = FALSE]
@@ -120,7 +120,7 @@ ratio_summary <- function(animals_subset) {
                                  if (length(distinct_fractions) == 1) distinct_fractions else "Inconsistent" }),
              geo_mean_ratio    = exp(rowMeans(log(ratio_per_sample), na.rm = TRUE)))[rowSums(measured) > 0]
 }
-# The validation rules, applied to every protein that is a DEP in at least one fraction.
+# The validation rules, applied to every protein that is a DAP in at least one fraction.
 # Returns the validated (tissue-level) proteins and the proteins tested in either fraction.
 tissue_level_deps <- function(groups, diabetic_group, nondiabetic_group) {
   de_AI <- differential_expression(de_input$AI, groups, diabetic_group, nondiabetic_group)
@@ -147,7 +147,7 @@ tissue_level_deps <- function(groups, diabetic_group, nondiabetic_group) {
        tested_proteins    = union(de_AI$tested_proteins, de_AS$tested_proteins))
 }
 
-# ---- Step 3: overlap with the bone-healing reference proteins (protein_sets_overlap_bone_CAPs.py) ----
+# ---- Step 3: overlap with the bone-regeneration reference proteins (protein_sets_overlap_bone_CAPs.py) ----
 # A protein is a reference protein when any of its human orthologs (semicolon-separated) is in the reference list.
 is_bone_reference_protein <- function(protein_ids) {
   vapply(strsplit(orthologs_of_protein[protein_ids], ";"),
@@ -187,7 +187,7 @@ for (comparison_name in names(COMPARISONS)) {
             observed[[paste0("reference_proteins_among_tested", suffix)]] == pipeline_row$Bone_Caps_Tested,
             observed[[paste0("reference_protein_overlap", suffix)]]       == pipeline_row$Overlap_First_Level + pipeline_row$Overlap_Second_Level)
 }
-cat(sprintf("Self-check passed. Observed: %d vs %d tissue-level DEPs (difference %d); overlap %d of %d tested (p = %.2g) vs %d of %d (p = %.2g), significance difference %.2f\n",
+cat(sprintf("Self-check passed. Observed: %d vs %d tissue-level DAPs (difference %d); overlap %d of %d tested (p = %.2g) vs %d of %d (p = %.2g), significance difference %.2f\n",
             observed$tissue_level_DEPs_empty, observed$tissue_level_DEPs_PCL, observed$DEP_count_difference,
             observed$reference_protein_overlap_empty, observed$tested_proteins_empty, observed$overlap_p_value_empty,
             observed$reference_protein_overlap_PCL,   observed$tested_proteins_PCL,   observed$overlap_p_value_PCL, observed$overlap_significance_difference))

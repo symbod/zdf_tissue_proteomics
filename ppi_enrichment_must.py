@@ -15,7 +15,7 @@ COMPARISONS = [
     "diabetic_PCL_42-nondiabetic_PCL_42",
 ]
 
-# First-level DEPs: validated by fraction agreement or exclusivity
+# First-level DAPs: validated by fraction agreement or exclusivity
 FIRST_LEVEL = [
     "Significant in both fractions (same direction)",
     "Exclusive to AI fraction",

@@ -1,8 +1,8 @@
 """
-DEP fraction breakdown — single combined figure.
+DAP fraction breakdown — single combined figure.
 One row per comparison: empty defect on top (panels a, b), PCL scaffold below
 (panels c, d).
-Left column (a, c):  Venn diagram of the DEP overlap between AI and AS fractions.
+Left column (a, c):  Venn diagram of the DAP overlap between AI and AS fractions.
 Right column (b, d): stacked bars broken down by category
                      Both | AI-only | AS-only, with concordant/discordant
                      and detected/exclusive sub-segments.
@@ -36,10 +36,10 @@ PANEL_LABELS = {
 COLORS = {
     "concordant":    "#009E73",  # bluish green   — both fractions, same direction
     "discordant":    "#D55E00",  # vermillion     — both fractions, opposite direction
-    "ai_only_det":   "#56B4E9",  # sky blue       — AI DEP, detected in AS
-    "ai_only_excl":  "#0072B2",  # blue           — AI DEP, never detected in AS
-    "as_only_det":   "#E69F00",  # orange         — AS DEP, detected in AI
-    "as_only_excl":  "#CC79A7",  # reddish purple — AS DEP, never detected in AI
+    "ai_only_det":   "#56B4E9",  # sky blue       — AI DAP, detected in AS
+    "ai_only_excl":  "#0072B2",  # blue           — AI DAP, never detected in AS
+    "as_only_det":   "#E69F00",  # orange         — AS DAP, detected in AI
+    "as_only_excl":  "#CC79A7",  # reddish purple — AS DAP, never detected in AI
 }
 LEGEND_LABELS = {
     "concordant":   "same direction",
@@ -185,7 +185,7 @@ for ax, comp in zip(bar_axes, COMPARISONS):
     ax.spines[["top", "right"]].set_visible(False)
     ax.yaxis.grid(True, linestyle=":", linewidth=0.6, alpha=0.5, zorder=0)
     ax.set_axisbelow(True)
-    ax.set_ylabel("Number of DEPs", fontsize=12)
+    ax.set_ylabel("Number of DAPs", fontsize=12)
 
 
 # ── Panel labels (a)(b)(c)(d) + row titles ────────────────────────────────────
@@ -216,9 +216,9 @@ for i, comp in enumerate(COMPARISONS):
 # ── Legend for panel (b) ──────────────────────────────────────────────────────
 title_fp = FontProperties(weight="bold", size=10.5)
 legend_groups = [
-    ("DEPs in both fractions:",   "concordant",  "discordant"),
-    ("DEPs in AI fraction only:", "ai_only_det", "ai_only_excl"),
-    ("DEPs in AS fraction only:", "as_only_det", "as_only_excl"),
+    ("DAPs in both fractions:",   "concordant",  "discordant"),
+    ("DAPs in AI fraction only:", "ai_only_det", "ai_only_excl"),
+    ("DAPs in AS fraction only:", "as_only_det", "as_only_excl"),
 ]
 
 # Anchor legend groups within the vertical span of the bar column

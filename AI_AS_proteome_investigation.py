@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 from matplotlib_venn import venn2
 from matplotlib.transforms import offset_copy
+from matplotlib.ticker import MultipleLocator
 from scipy.stats import pearsonr
 
 OUT_DIR = "ai_as_proteome_investigation_results"
@@ -179,8 +180,10 @@ hi = max(all_x.max(), all_y.max()) + 0.3
 ax_scatter.plot([lo, hi], [lo, hi], color="#AAAAAA", lw=0.8, ls="--", zorder=0)
 ax_scatter.set_xlim(lo, hi)
 ax_scatter.set_ylim(lo, hi)
-ax_scatter.set_xlabel("Median normalized log₂ abundance\nin AI fraction", fontsize=13)
-ax_scatter.set_ylabel("Median normalized log₂ abundance\nin AS fraction", fontsize=13)
+ax_scatter.xaxis.set_major_locator(MultipleLocator(2))
+ax_scatter.yaxis.set_major_locator(MultipleLocator(2))
+ax_scatter.set_xlabel("Median of normalized log₂ abundance\nin AI fraction", fontsize=13)
+ax_scatter.set_ylabel("Median of normalized log₂ abundance\nin AS fraction", fontsize=13)
 ax_scatter.tick_params(labelsize=12)
 ax_scatter.spines[["top", "right"]].set_visible(False)
 ax_scatter.set_aspect("equal")

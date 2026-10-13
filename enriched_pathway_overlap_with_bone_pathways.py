@@ -29,9 +29,9 @@ COMPARISONS = {
 SET_DIRS = ["set3_first_level", "set1_tissue_level", "set2_tissue_plus_network"]
 
 labels = [
-    "First-level\nDEPs",
-    "Tissue-level DEPs",
-    "Tissue-level DEPs\n+ connector proteins",
+    "First-level\nDAPs",
+    "Tissue-level DAPs",
+    "Tissue-level DAPs\n+ connector proteins",
 ]
 
 COLORS = {
@@ -142,7 +142,7 @@ for fc in FC_THRESHOLDS:
 
         # Overlap significance of the shared pathways. The population is the terms
         # tested in both comparisons, counted as above (M = tested terms, n = those
-        # in the bone-healing reference); a shared significant term is always in it.
+        # in the bone-regeneration reference); a shared significant term is always in it.
         pathway_pvals["Shared"] = []
         for set_dir in SET_DIRS:
             tested_both = complete_ids_store[comp_keys_list[0]][set_dir] & complete_ids_store[comp_keys_list[1]][set_dir]
@@ -243,7 +243,7 @@ for fc in FC_THRESHOLDS:
         ax_b.text(-0.55, sig_line + ymax_b * 0.02, "p = 0.05",
                   ha="left", va="bottom", fontsize=8, color=LINE_COLOR)
 
-        ax_b.set_ylabel("−log₁₀(p-value)\n(overlap of significantly enriched pathways\nwith bone-healing reference pathways)", fontsize=10, labelpad=6)
+        ax_b.set_ylabel("−log₁₀(p-value)\n(overlap of significantly enriched pathways\nwith bone-regeneration reference pathways)", fontsize=10, labelpad=6)
         ax_b.set_ylim(0, ymax_b)
         ax_b.set_xlim(-0.6, len(labels) - 0.4)
         ax_b.tick_params(axis="y", labelsize=9)
@@ -276,9 +276,9 @@ print(f"\n{'='*60}\nDONE\n{'='*60}")
 # ── Supplement export ─────────────────────────────────────────────────────────
 
 SET_LABELS_MAP = {
-    "set1_tissue_level":        "Tissue level DEPs",
-    "set2_tissue_plus_network": "Tissue level DEPs + network",
-    "set3_first_level":         "First level DEPs",
+    "set1_tissue_level":        "Tissue level DAPs",
+    "set2_tissue_plus_network": "Tissue level DAPs + network",
+    "set3_first_level":         "First level DAPs",
 }
 
 results_df = pd.DataFrame(_results)
@@ -294,28 +294,28 @@ README = pd.DataFrame([
     ("Shared",       "Pathways significant in both comparisons; population = terms tested in both comparisons."),
     ("",            ""),
     ("Column name", "Description"),
-    ("AR threshold",               "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DEP."),
-    ("ΔAR",                        "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DEP to be considered stable across groups."),
-    ("Significant terms (N) | Tissue level DEPs",            "Significantly enriched pathways (q-value < 0.05), tissue-level DEPs."),
-    ("Significant terms (N) | Tissue level DEPs + network",  "Significantly enriched pathways (q-value < 0.05), tissue-level DEPs + network proteins."),
-    ("Significant terms (N) | First level DEPs",             "Significantly enriched pathways (q-value < 0.05), first-level DEPs."),
-    ("Bone terms significant (k) | Tissue level DEPs",           "Significant pathways also in the bone-healing reference, tissue-level DEPs."),
-    ("Bone terms significant (k) | Tissue level DEPs + network", "Significant pathways also in the bone-healing reference, tissue-level DEPs + network proteins."),
-    ("Bone terms significant (k) | First level DEPs",            "Significant pathways also in the bone-healing reference, first-level DEPs."),
-    ("Expected overlap | Tissue level DEPs",           "Expected overlap under hypergeometric null, tissue-level DEPs."),
-    ("Expected overlap | Tissue level DEPs + network", "Expected overlap under hypergeometric null, tissue-level DEPs + network proteins."),
-    ("Expected overlap | First level DEPs",            "Expected overlap under hypergeometric null, first-level DEPs."),
-    ("p-value | Tissue level DEPs",           "Hypergeometric p-value, tissue-level DEPs."),
-    ("p-value | Tissue level DEPs + network", "Hypergeometric p-value, tissue-level DEPs + network proteins."),
-    ("p-value | First level DEPs",            "Hypergeometric p-value, first-level DEPs."),
-    ("Overlapping terms | Tissue level DEPs",           "The k significant pathways that are bone-healing reference pathways, as term name (ID), tissue-level DEPs."),
-    ("Overlapping terms | Tissue level DEPs + network", "The k significant pathways that are bone-healing reference pathways, tissue-level DEPs + network proteins."),
-    ("Overlapping terms | First level DEPs",            "The k significant pathways that are bone-healing reference pathways, first-level DEPs."),
+    ("AR threshold",               "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
+    ("ΔAR",                        "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
+    ("Significant terms (N) | Tissue level DAPs",            "Significantly enriched pathways (q-value < 0.05), tissue-level DAPs."),
+    ("Significant terms (N) | Tissue level DAPs + network",  "Significantly enriched pathways (q-value < 0.05), tissue-level DAPs + network proteins."),
+    ("Significant terms (N) | First level DAPs",             "Significantly enriched pathways (q-value < 0.05), first-level DAPs."),
+    ("Bone terms significant (k) | Tissue level DAPs",           "Significant pathways also in the bone-regeneration reference, tissue-level DAPs."),
+    ("Bone terms significant (k) | Tissue level DAPs + network", "Significant pathways also in the bone-regeneration reference, tissue-level DAPs + network proteins."),
+    ("Bone terms significant (k) | First level DAPs",            "Significant pathways also in the bone-regeneration reference, first-level DAPs."),
+    ("Expected overlap | Tissue level DAPs",           "Expected overlap under hypergeometric null, tissue-level DAPs."),
+    ("Expected overlap | Tissue level DAPs + network", "Expected overlap under hypergeometric null, tissue-level DAPs + network proteins."),
+    ("Expected overlap | First level DAPs",            "Expected overlap under hypergeometric null, first-level DAPs."),
+    ("p-value | Tissue level DAPs",           "Hypergeometric p-value, tissue-level DAPs."),
+    ("p-value | Tissue level DAPs + network", "Hypergeometric p-value, tissue-level DAPs + network proteins."),
+    ("p-value | First level DAPs",            "Hypergeometric p-value, first-level DAPs."),
+    ("Overlapping terms | Tissue level DAPs",           "The k significant pathways that are bone-regeneration reference pathways, as term name (ID), tissue-level DAPs."),
+    ("Overlapping terms | Tissue level DAPs + network", "The k significant pathways that are bone-regeneration reference pathways, tissue-level DAPs + network proteins."),
+    ("Overlapping terms | First level DAPs",            "The k significant pathways that are bone-regeneration reference pathways, first-level DAPs."),
 ], columns=["_", "__"])
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:
     README.to_excel(writer, sheet_name="README", index=False, header=False, startrow=2)
-    writer.sheets["README"]["A1"] = "Enriched Pathway Overlap with Bone-Healing Reference Pathways"
+    writer.sheets["README"]["A1"] = "Enriched Pathway Overlap with Bone-Regeneration Reference Pathways"
     for comp_label in [*COMPARISONS.values(), "Shared"]:
         subset = results_df[results_df["Comparison"] == comp_label].drop(columns="Comparison")
         pivot  = subset.pivot(

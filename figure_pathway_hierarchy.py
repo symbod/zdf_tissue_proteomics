@@ -30,9 +30,9 @@ STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 
 SETS      = ["set3_first_level", "set1_tissue_level", "set2_tissue_plus_network"]
 SET_LABELS = [
-    "First-level\nDEPs",
-    "Tissue-level\nDEPs",
-    "Tissue-level DEPs +\nconnector proteins",
+    "First-level\nDAPs",
+    "Tissue-level\nDAPs",
+    "Tissue-level DAPs +\nconnector proteins",
 ]
 COMP_KEYS = [
     "diabetic_empty_42-nondiabetic_empty_42",
@@ -48,7 +48,7 @@ BONE_FILE = "input/bone_enrichments_meta_analysis.csv"
 CAT_COLORS  = {"BP": "#0072B2", "MF": "#E69F00", "CC": "#56B4E9", "KEGG": "#D55E00"}
 CAT_ORDER   = ["BP", "MF", "CC", "KEGG"]
 CAT_LABELS  = {"BP": "GO:BP", "MF": "GO:MF", "CC": "GO:CC", "KEGG": "KEGG"}  # legend display names
-BONE_STAR  = " ★"  # appended to pathway labels that are in the bone-healing reference
+BONE_STAR  = " ★"  # appended to pathway labels that are in the bone-regeneration reference
 
 # 6 columns: 3 sets × 2 comparisons, with a visual gap between the two comparison groups
 COL_KEYS      = [(ck, s) for ck in COMP_KEYS for s in SETS]
@@ -175,14 +175,14 @@ def top_ids_for_comp(data: pd.DataFrame, comp: str) -> list:
 def build_dot_df(data: pd.DataFrame, bone_ids: set) -> pd.DataFrame:
     """
     Receives: data     — the full stacked DataFrame from load_all().
-              bone_ids — set of pathway ID strings from the bone-healing reference.
+              bone_ids — set of pathway ID strings from the bone-regeneration reference.
     Returns:  a DataFrame with one row per selected pathway, ready for the dotplot.
               Columns:
                 - ID, Description, Category, go_depth — pathway metadata
                 - one column per (comparison × set) combination, named
                   "<comp_key>__<set_key>", containing neg_log_padj if the pathway
                   is significant there, NaN otherwise (→ grey dot in the figure)
-                - in_bone_meta: True if this pathway is in the bone-healing reference
+                - in_bone_meta: True if this pathway is in the bone-regeneration reference
 
     How pathways are selected:
       Call top_ids_for_comp() for each comparison to get up to TOP_N pathway IDs
@@ -266,7 +266,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
       - Y-axis: one row per pathway (pathway name as tick label)
       - X-axis: 6 columns — 3 protein sets × 2 comparisons
       - Left margin: coloured depth stripe (colour = namespace, alpha = GO depth)
-                     + brown indicator for bone-healing reference pathways
+                     + brown indicator for bone-regeneration reference pathways
       - Dots: coloured and sized by neg_log_padj if significant; small grey if not
       - Bottom: two legends — one for namespace colours, one for dot size scale
     """
@@ -366,7 +366,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
                          zorder=3, linewidths=0, clip_on=False)
         _size_ax.text(0.44, _c, _lbl, fontsize=6, va="center", ha="left")
 
-    fig.text(0.81, 0.24, "★ Bone-healing\nreference\npathway",
+    fig.text(0.81, 0.24, "★ Bone-regeneration\nreference\npathway",
              fontsize=6.5, fontweight="bold", va="top", ha="left", color="0.35",
              transform=fig.transFigure, linespacing=1.4)
 
@@ -407,7 +407,7 @@ if __name__ == "__main__":
                 continue
 
             print(f"  {len(dot_df)} unique pathways in union (top {TOP_N} per comparison)")
-            print(f"  {dot_df['in_bone_meta'].sum()} of these are in the bone-healing reference")
+            print(f"  {dot_df['in_bone_meta'].sum()} of these are in the bone-regeneration reference")
 
             out = os.path.join(base, "pathway_hierarchy_dotplot.png")
             make_dotplot_figure(dot_df).savefig(out, dpi=300, bbox_inches="tight")
