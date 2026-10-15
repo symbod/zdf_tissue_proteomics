@@ -3,12 +3,15 @@ Dotplot of top enriched pathways per protein set and comparison.
 
 Rows = union of top-10 pathways (significant in ALL 3 protein sets) per comparison,
 sorted by mean −log10(p.adj) across the six cells. Columns = 3 protein sets × 2 comparisons.
-Dot size = −log10(p.adj); grey dot = not significant.
+Dot size = −log10(p.adj); grey dot = not significant. The "n↓ n↑" column of each comparison counts
+the down-/upregulated tissue-level DAPs annotated to the term (direction from validated_DEPs.csv).
 GO depths downloaded once from go-basic.obo and cached at ~/.cache/go-basic.obo.
 """
 
+import glob
 import os
 import re
+import sqlite3
 import textwrap
 import urllib.request
 import pandas as pd
@@ -50,12 +53,21 @@ CAT_ORDER   = ["BP", "MF", "CC", "KEGG"]
 CAT_LABELS  = {"BP": "GO:BP", "MF": "GO:MF", "CC": "GO:CC", "KEGG": "KEGG"}  # legend display names
 BONE_STAR  = " ★"  # appended to pathway labels that are in the bone-regeneration reference
 
-# 6 columns: 3 sets × 2 comparisons, with a visual gap between the two comparison groups
+# 6 dot columns: 3 sets × 2 comparisons, each comparison followed by a text column with the
+# direction counts of its tissue-level DAPs, with a visual gap between the two comparison groups
 COL_KEYS      = [(ck, s) for ck in COMP_KEYS for s in SETS]
-COL_POS       = [0.0, 0.42, 0.84, 1.42, 1.84, 2.26]
+COL_POS       = [0.0, 0.42, 0.84, 1.90, 2.32, 2.74]
 COL_TICK_LBLS = SET_LABELS * 2
-COMP_CTR      = [0.42, 1.84]   # x-centre of each comparison group, for the header text
-COMP_SEP      = 1.13           # x-position of the dashed divider between comparison groups
+COMP_CTR      = [0.65, 2.55]   # x-centre of each comparison group, for the header text
+COMP_SEP      = 1.60           # x-position of the dashed divider between comparison groups
+DIRECTION_COL_POS   = [1.30, 3.20]   # x-position of the "n↓ n↑" text column of each comparison
+DIRECTION_COL_LABEL = "Tissue-level DAPs\n↓ down / ↑ up"
+
+# org.Rn.eg.db, the gene annotation used by pathway_enrichment.R. KEGG terms list Entrez IDs
+# in their geneID column (GO terms list gene symbols); this maps them back to gene symbols.
+ORG_DB_PATH      = glob.glob("renv/library/**/org.Rn.eg.sqlite", recursive=True)[0]
+ENTREZ_TO_SYMBOL = dict(sqlite3.connect(ORG_DB_PATH).execute(
+    "SELECT gene_id, symbol FROM genes JOIN gene_info USING (_id)"))
 
 
 # ── GO depth ──────────────────────────────────────────────────────────────────
@@ -112,13 +124,19 @@ def parse_go_depths(obo_path: str) -> dict:
 
 # ── data loading ──────────────────────────────────────────────────────────────
 
+def entrez_ids_to_symbols(gene_list: str) -> str:
+    """"24189/24333" → "Aldoa/Tpm1". Gene symbols (as listed by GO terms) pass through unchanged."""
+    return "/".join(ENTREZ_TO_SYMBOL.get(gene, gene) for gene in gene_list.split("/"))
+
+
 def load_all(go_depths: dict, base: str) -> pd.DataFrame:
     """
     Receives: go_depths — dict {GO_ID: depth} from parse_go_depths().
               base      — path to the enrichment directory for one threshold combination.
     Returns:  a single DataFrame with one row per pathway per (comparison, set),
               i.e. 6 × (number of tested pathways) rows in total.
-              Columns from the CSV are kept as-is; three columns are added:
+              Columns from the CSV are kept as-is (except geneID of KEGG terms, converted
+              from Entrez IDs to gene symbols); three columns are added:
                 - "Set"         : which protein set this row belongs to
                 - "Comparison"  : which comparison (e.g. diabetic_empty_42-...)
                 - "go_depth"    : GO depth from go_depths (NaN for KEGG terms)
@@ -134,6 +152,9 @@ def load_all(go_depths: dict, base: str) -> pd.DataFrame:
             frames.append(df)
     data = pd.concat(frames, ignore_index=True)
 
+    # use gene symbols in geneID for KEGG terms too
+    data["geneID"] = data["geneID"].map(entrez_ids_to_symbols)
+
     # KEGG pathways have no GO:ID, so their depth is undefined → NaN
     data["go_depth"] = data.apply(
         lambda r: float(go_depths.get(r["ID"], np.nan))
@@ -143,6 +164,36 @@ def load_all(go_depths: dict, base: str) -> pd.DataFrame:
     # clip prevents log(0) for extremely small p-values from clusterProfiler
     data["neg_log_padj"] = -np.log10(data["p.adjust"].clip(lower=1e-300))
     return data
+
+
+# ── direction of the tissue-level DAPs in a term ──────────────────────────────
+
+def tissue_level_daps_in_term(data: pd.DataFrame, term_id: str, comparison: str) -> set:
+    """
+    Receives: data       — the full stacked DataFrame from load_all().
+              term_id    — GO or KEGG term ID.
+              comparison — one comparison key.
+    Returns:  set of gene symbols of the tissue-level DAPs annotated to the term in that
+              comparison, i.e. the "geneID" column of the tissue-level set split at "/".
+              Empty if the term was not tested there (no annotated DAP).
+    """
+    term_rows = data[(data["ID"] == term_id) & (data["Comparison"] == comparison)
+                     & (data["Set"] == "set1_tissue_level")]
+    genes = set()
+    for gene_list in term_rows["geneID"]:   # at most one row, e.g. "Gstm2/Aldoa/Tpm1/…"
+        genes.update(gene_list.split("/"))
+    return genes
+
+
+def count_directions(genes: set, direction_of_gene: dict) -> tuple:
+    """
+    Receives: genes             — gene symbols of tissue-level DAPs.
+              direction_of_gene — dict gene symbol → "Down Regulated" / "Up Regulated",
+                                  from validated_DEPs.csv for one comparison.
+    Returns:  (number of downregulated genes, number of upregulated genes).
+    """
+    directions = [direction_of_gene.get(gene) for gene in genes]
+    return directions.count("Down Regulated"), directions.count("Up Regulated")
 
 
 # ── top-pathway selection ─────────────────────────────────────────────────────
@@ -172,16 +223,20 @@ def top_ids_for_comp(data: pd.DataFrame, comp: str) -> list:
     return list(piv.nlargest(TOP_N, "score").index)
 
 
-def build_dot_df(data: pd.DataFrame, bone_ids: set) -> pd.DataFrame:
+def build_dot_df(data: pd.DataFrame, bone_ids: set, direction_of_gene: dict) -> pd.DataFrame:
     """
-    Receives: data     — the full stacked DataFrame from load_all().
-              bone_ids — set of pathway ID strings from the bone-regeneration reference.
+    Receives: data              — the full stacked DataFrame from load_all().
+              bone_ids          — set of pathway ID strings from the bone-regeneration reference.
+              direction_of_gene — dict {comparison: {gene symbol: direction}} of the
+                                  tissue-level DAPs, see count_directions().
     Returns:  a DataFrame with one row per selected pathway, ready for the dotplot.
               Columns:
                 - ID, Description, Category, go_depth — pathway metadata
                 - one column per (comparison × set) combination, named
                   "<comp_key>__<set_key>", containing neg_log_padj if the pathway
                   is significant there, NaN otherwise (→ grey dot in the figure)
+                - "<comp_key>__down" / "<comp_key>__up": number of down-/upregulated
+                  tissue-level DAPs annotated to the pathway in that comparison
                 - in_bone_meta: True if this pathway is in the bone-regeneration reference
 
     How pathways are selected:
@@ -219,6 +274,9 @@ def build_dot_df(data: pd.DataFrame, bone_ids: set) -> pd.DataFrame:
                     if len(cell) and bool(cell.iloc[0]["Significant"])
                     else np.nan
                 )
+            # how many of the tissue-level DAPs annotated to this pathway are down-/upregulated
+            genes = tissue_level_daps_in_term(data, pid, ck)
+            row[f"{ck}__down"], row[f"{ck}__up"] = count_directions(genes, direction_of_gene[ck])
         rows.append(row)
 
     df = pd.DataFrame(rows)
@@ -236,10 +294,10 @@ def build_dot_df(data: pd.DataFrame, bone_ids: set) -> pd.DataFrame:
 # ── figure helpers ────────────────────────────────────────────────────────────
 
 def _set_col_ticks(ax: plt.Axes, rotation: int = 45) -> None:
-    """Sets the 6 x-axis tick labels (protein set names, repeated for each comparison)."""
-    ax.set_xticks(COL_POS)
-    ax.set_xticklabels(COL_TICK_LBLS, fontsize=6.5, rotation=rotation, ha="right",
-                       rotation_mode="anchor")
+    """Sets the 8 x-axis tick labels (protein set names + direction-count column, repeated for each comparison)."""
+    ax.set_xticks(COL_POS + DIRECTION_COL_POS)
+    ax.set_xticklabels(COL_TICK_LBLS + [DIRECTION_COL_LABEL] * 2, fontsize=6.5, rotation=rotation,
+                       ha="right", rotation_mode="anchor")
 
 
 def _add_comp_headers(ax: plt.Axes, y: float) -> None:
@@ -264,7 +322,8 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
 
     Layout:
       - Y-axis: one row per pathway (pathway name as tick label)
-      - X-axis: 6 columns — 3 protein sets × 2 comparisons
+      - X-axis: 6 columns — 3 protein sets × 2 comparisons, plus one text column per
+                comparison with the direction counts ("n↓ n↑") of the tissue-level DAPs
       - Left margin: coloured depth stripe (colour = namespace, alpha = GO depth)
                      + brown indicator for bone-regeneration reference pathways
       - Dots: coloured and sized by neg_log_padj if significant; small grey if not
@@ -275,7 +334,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
     n_rows   = len(dot_df)
 
     # figure height scales with row count so pathway labels never overlap
-    fig, ax = plt.subplots(figsize=(4.6, max(3.2, 0.28 * n_rows + 1.3)))
+    fig, ax = plt.subplots(figsize=(5.4, max(3.2, 0.28 * n_rows + 1.3)))
 
     # ── left margin: depth stripe (colour = namespace, number = GO depth) ───────
     STRIPE_X = min(COL_POS) - 0.36
@@ -305,6 +364,12 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
                 ax.scatter(xi, ri, s=(v / max_val) * 150 + 11,
                            color=color, alpha=0.88, zorder=3, linewidths=0)
 
+    # ── text column per comparison: "n↓ n↑" = down-/upregulated tissue-level DAPs in the term ──
+    for ri, row in dot_df.iterrows():
+        for x, comparison in zip(DIRECTION_COL_POS, COMP_KEYS):
+            n_down, n_up = row[f"{comparison}__down"], row[f"{comparison}__up"]
+            ax.text(x, ri, f"{n_down}↓ {n_up}↑", ha="center", va="center", fontsize=6, zorder=3)
+
     ax.set_yticks(range(n_rows))
     ax.set_yticklabels(
         [
@@ -313,7 +378,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
         ],
         fontsize=6.5,
     )
-    ax.set_xlim(min(COL_POS) - 0.58, max(COL_POS) + 0.18)
+    ax.set_xlim(min(COL_POS) - 0.58, max(DIRECTION_COL_POS) + 0.30)
     ax.set_ylim(n_rows - 0.45, -0.55)
 
     _set_col_ticks(ax)
@@ -399,8 +464,16 @@ if __name__ == "__main__":
 
             data = load_all(go_depths, base)
 
+            # direction of each tissue-level DAP: {comparison: {gene symbol: "Down Regulated" / "Up Regulated"}}
+            validated_daps = pd.read_csv(os.path.join("valid_DEPs", f"FC{fc}_Stab{stab}", "validated_DEPs.csv"))
+            direction_of_gene = {}
+            for comparison, daps in validated_daps.groupby("Comparison"):
+                # a gene with several protein groups (e.g. Tnnt3) must have one direction
+                assert (daps.groupby("Gene.Names")["Direction"].nunique() == 1).all()
+                direction_of_gene[comparison] = dict(zip(daps["Gene.Names"], daps["Direction"]))
+
             print("Selecting top shared pathways …")
-            dot_df = build_dot_df(data, bone_ids)
+            dot_df = build_dot_df(data, bone_ids, direction_of_gene)
 
             if dot_df.empty:
                 print("  No pathways shared across all 3 sets in both comparisons — skipping figure")
@@ -408,6 +481,14 @@ if __name__ == "__main__":
 
             print(f"  {len(dot_df)} unique pathways in union (top {TOP_N} per comparison)")
             print(f"  {dot_df['in_bone_meta'].sum()} of these are in the bone-regeneration reference")
+            direction_columns = [f"{ck}__{direction}" for ck in COMP_KEYS for direction in ("down", "up")]
+            print(dot_df[["Description"] + direction_columns].to_string(index=False))
+            for comparison, label in zip(COMP_KEYS, COMP_LBLS):
+                genes = set()   # tissue-level DAPs annotated to any of the shown terms
+                for term_id in dot_df["ID"]:
+                    genes.update(tissue_level_daps_in_term(data, term_id, comparison))
+                n_down, n_up = count_directions(genes, direction_of_gene[comparison])
+                print(f"  {label}: {len(genes)} distinct tissue-level DAPs in these terms, {n_down} down, {n_up} up")
 
             out = os.path.join(base, "pathway_hierarchy_dotplot.png")
             make_dotplot_figure(dot_df).savefig(out, dpi=300, bbox_inches="tight")
