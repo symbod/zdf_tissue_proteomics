@@ -46,7 +46,7 @@ set.seed(seed)
 ```{r config}
 prot_file <- "harmonization_results/map_orthologs/Modified_Data.csv"
 meta_file <- "input/SampleDescription.csv"
-fraction_to_keep <- "AS"  # Set to "AI" or "AS"
+fraction_to_keep <- "AI"  # Set to "AI" or "AS"
 
 save_plots <- TRUE
 # Define the final output directory
@@ -436,7 +436,7 @@ p2 <- plot_PCA(se_normalized, ain = normalization_methods, color_by = "Scaffold"
 
 
 if(save_plots && !is.null(final_out_dir)){
-  sub_dir <- paste0(file.path(final_out_dir,"post_normalization_pre_scaling"))
+  sub_dir <- paste0(file.path(final_out_dir,"post_normalization"))
   dir.create(sub_dir, recursive = TRUE, showWarnings = FALSE)
   
   ggsave(filename = file.path(sub_dir, paste0("boxplot_condition.", file_type)), plot = p1)
@@ -448,174 +448,29 @@ for (p in list(p1, p2)){
 }
 ```
 
-### Print heatmap after normalization and before scaling
+### Print heatmap after normalization
 ```{r}
 p_heat_post_norm <- plot_heatmap(se = se_normalized, ain = "RobNorm", color_by = c("Condition", "Scaffold"), label_by = "Animal")
 
 if(save_plots && !is.null(final_out_dir)){
-  sub_dir <- paste0(file.path(final_out_dir,"post_normalization_pre_scaling"))
+  sub_dir <- paste0(file.path(final_out_dir,"post_normalization"))
   dir.create(sub_dir, recursive = TRUE, showWarnings = FALSE)
   
-  save_png(filename = file.path(sub_dir, "post_norm_pre_scaling_heatmap.png"), p = p_heat_post_norm)
+  save_png(filename = file.path(sub_dir, "post_norm_heatmap.png"), p = p_heat_post_norm)
 }
 
 print(p_heat_post_norm)
 ```
 
-## Scaling
-```{r}
-scale_se <- function(se_data, methods){
-
-  # Get initial count
-  initial_samples <- ncol(se_data)
-  cat(sprintf("Initial number of samples: %d\n", initial_samples))
-
-  # Convert column data from SummarizedExperiment to a data table for manipulation
-  coldata <- as.data.table(colData(se_data))
-
-  # Iterate only over the intended normalized assays (e.g. "log2" must not be
-  # scaled and dropped here - it is still needed elsewhere as-is), regardless
-  # of what other assays happen to be present on se_data
-  for(ain in methods){
-    
-    # Convert the current assay to a data frame for processing
-    dt <- as.data.frame(assays(se_data)[[ain]])
-    
-    # For ZDF_validation batch - calculate condition-specific medians of ctrl_42 samples
-    # Identify the sample IDs
-    diabetic_ctrl42_cols <- coldata[coldata$Batch == "ZDF_validation" & 
-                                   coldata$Tissue == "ctrl_42" & 
-                                   coldata$Condition == "diabetic", ]$Column
-    
-    nondiabetic_ctrl42_cols <- coldata[coldata$Batch == "ZDF_validation" & 
-                                      coldata$Tissue == "ctrl_42" & 
-                                      coldata$Condition == "nondiabetic", ]$Column
-    
-    # Calculate condition-specific medians
-    diabetic_ctrl42_medians <- NULL
-    nondiabetic_ctrl42_medians <- NULL
-    
-    if (length(diabetic_ctrl42_cols) > 0) {
-      diabetic_ctrl42_medians <- apply(dt[, diabetic_ctrl42_cols, drop = FALSE], 1, median, na.rm = TRUE) # Calculate median row-wise
-    }
-    
-    if (length(nondiabetic_ctrl42_cols) > 0) {
-      nondiabetic_ctrl42_medians <- apply(dt[, nondiabetic_ctrl42_cols, drop = FALSE], 1, median, na.rm = TRUE)
-    }
-    
-    diabetic_valid <- !is.na(diabetic_ctrl42_medians) & 
-                 !is.nan(diabetic_ctrl42_medians) & 
-                 !is.infinite(diabetic_ctrl42_medians)
-    
-    nondiabetic_valid <- !is.na(nondiabetic_ctrl42_medians) & 
-                        !is.nan(nondiabetic_ctrl42_medians) & 
-                        !is.infinite(nondiabetic_ctrl42_medians)
-    
-    cat(sprintf("\nScaling statistics for assay '%s':\n", ain))
-    cat(sprintf("  Proteins with valid diabetic ctrl_42 median: %d / %d (%.1f%%)\n", 
-                sum(diabetic_valid), length(diabetic_valid), 
-                100 * sum(diabetic_valid) / length(diabetic_valid)))
-    cat(sprintf("  Proteins with valid nondiabetic ctrl_42 median: %d / %d (%.1f%%)\n", 
-                sum(nondiabetic_valid), length(nondiabetic_valid), 
-                100 * sum(nondiabetic_valid) / length(nondiabetic_valid)))
-
-    # Iterate over each unique animal in the experiment
-    for (animal in unique(coldata$Animal)){
-      
-      # Get the batch for this animal
-      animal_batch <- unique(coldata[coldata$Animal == animal, ]$Batch)
-      if ("ZDF_validation" %in% animal_batch) {
-        # Get the condition for this animal
-        animal_condition <- unique(coldata[coldata$Animal == animal, ]$Condition)
-        
-        # Get all samples for this animal in ZDF_validation batch
-        r <- coldata[(coldata$Animal == animal) & (coldata$Batch == "ZDF_validation"),]$Column
-        
-        # Scale samples by condition-specific median
-        if (length(r) > 0) {
-          if (animal_condition == "diabetic" && !is.null(diabetic_ctrl42_medians)) {
-            for (col in r) {
-              dt[, col] <- dt[, col] - diabetic_ctrl42_medians
-            }
-          } else if (animal_condition == "nondiabetic" && !is.null(nondiabetic_ctrl42_medians)) {
-            for (col in r) {
-              dt[, col] <- dt[, col] - nondiabetic_ctrl42_medians
-            }
-          }
-        }
-      } else {
-                stop(sprintf("ERROR: Animal %s is from batch '%s', but scaling is only implemented for 'ZDF_validation' batch. 
-                     \nPlease check your data or implement scaling for other batches.", 
-                     animal, paste(animal_batch, collapse = ", ")))
-      }
-    }
-
-    # Add the scaled data as a new assay in the SummarizedExperiment object
-    assay(se_data, paste0(ain, "_scaled"), FALSE) <- as.data.table(dt)
-
-    # Remove the original (unscaled) assay data
-    assay(se_data, ain, FALSE) <- NULL
-  }
-  
-  # Count control samples
-  ctrl42_count <- sum(se_data$Tissue == "ctrl_42")
-  cat(sprintf("Control samples to be removed: %d ctrl_42 samples\n", ctrl42_count))
-
-  # Remove the ctrl_42 reference samples from the SummarizedExperiment
-  samples_to_keep <- se_data$Tissue != "ctrl_42"
-  se_scaled <- se_data[, samples_to_keep]
-  
-  # Report final counts
-  final_samples <- ncol(se_scaled)
-  cat(sprintf("Final number of samples after filtering: %d\n", final_samples))
-  cat(sprintf("Total samples removed: %d\n", initial_samples - final_samples))
-
-  return(se_scaled)
-}
-```
-
-
-```{r perform and visualize scaling}
-se_scaled <- scale_se(se_normalized, normalization_methods)
-
-if (!is.null(final_out_dir)){
-  # Create the scaled assay names (they now have "_scaled" suffix)
-  scaled_methods <- paste0(normalization_methods, "_scaled")
-  # CREATE THE SUBDIRECTORIES
-  scaled_dir <- file.path(final_out_dir, "scaled")
-  dir.create(scaled_dir, recursive = TRUE, showWarnings = FALSE)
-  # Export scaled data
-  export_data(se = se_scaled, out_dir = scaled_dir, ain = scaled_methods)
-}
-
-p1 <- plot_boxplots(se_scaled, ain = paste(normalization_methods, "_scaled", sep=""),
-                    color_by = "Scaffold", label_by = "Condition")
-
-p2 <- plot_PCA(se_scaled, ain = paste(normalization_methods, "_scaled", sep=""), color_by = "Scaffold", 
-               label_by = "No", shape_by = "Condition", facet_norm = TRUE)
-
-if(save_plots && !is.null(final_out_dir)){
-  sub_dir <- paste0(file.path(final_out_dir,"post_scaling"))
-  dir.create(sub_dir, recursive = TRUE, showWarnings = FALSE)
-  
-  ggsave(filename = file.path(sub_dir, paste0("boxplot_condition.", file_type)), plot = p1)
-  ggsave(filename = file.path(sub_dir, paste0("pca_condition.", file_type)), plot = p2)
-}
-
-for (p in list(p1, p2)){
-  print(p)
-}
-```
-
 ## Choosing the best normalization based evaluation above.
 ```{r selection_of_norm}
-desired_norm <- "RobNorm_scaled"
+desired_norm <- "RobNorm"
 ```
 
 ## Detect outliers
 ```{r}
 # Create SE object with only RobNorm data for outlier detection
-se_robnorm_only <- se_scaled
+se_robnorm_only <- se_normalized
 assays(se_robnorm_only) <- assays(se_robnorm_only)[desired_norm]  # Keep only desired dataset
 
 # Now run outlier detection on normalized data
@@ -636,17 +491,4 @@ outliers_result_robnorm <- POMA::PomaOutliers(se_robnorm_only,
 print(outliers_result_robnorm$distance_boxplot)
 outlier_samples_robnorm <- outliers_result_robnorm$outliers
 print(outlier_samples_robnorm)
-```
-
-## Print heatmap of final dataset
-```{r}
-p <- plot_heatmap(se = se_scaled, ain = desired_norm, color_by = c("Condition", "Scaffold"), label_by = "No")
-
-if(save_plots && !is.null(final_out_dir)){
-  sub_dir <- paste0(file.path(final_out_dir,"post_scaling"))
-  dir.create(sub_dir, recursive = TRUE, showWarnings = FALSE)
-  
-  save_png(filename = file.path(sub_dir, "post_scaling_heatmap.png"), p = p)
-}
-print(p)
 ```

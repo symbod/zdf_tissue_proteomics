@@ -27,7 +27,7 @@ README = pd.DataFrame([
     ("",                     ""),
     ("Threshold",            "Description"),
     ("AR",                   "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
-    ("ΔAR",                  "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
+    ("ΔAR",                  "Stability threshold: the largest fold by which a change in fraction distribution may contribute to the sham-corrected fraction-level effect of a second-level DAP (see ShareContrast_Fold)."),
     ("",                     ""),
     ("Column name",          "Description"),
     ("Protein.IDs",          "UniProt accessions."),
@@ -39,18 +39,18 @@ README = pd.DataFrame([
     ("AR_between_fractions", "Abundance ratio between fractions."),
     ("Dominant_Fraction",    "Dominant fraction (AI or AS) according to comparison-level abundance ratio."),
     ("Validation",           "Validation reason for the protein being a tissue-level DAP."),
-    ("GeoMeanAR_Group1",     "Geometric mean AR across diabetic samples of the comparison."),
-    ("GeoMeanAR_Group2",     "Geometric mean AR across non-diabetic samples of the comparison."),
-    ("GeoMeanAR_Ratio",      "max(GeoMeanAR_Group1, GeoMeanAR_Group2) / min(GeoMeanAR_Group1, GeoMeanAR_Group2)"),
+    ("AIShare_Group1_Defect", "Geometric-mean share of the protein in the AI fraction, AI/(AI+AS), across the diabetic defect samples of the comparison."),
+    ("AIShare_Group1_Sham",   "Same across the diabetic sham samples."),
+    ("AIShare_Group2_Defect", "Same across the non-diabetic defect samples."),
+    ("AIShare_Group2_Sham",   "Same across the non-diabetic sham samples."),
+    ("ShareContrast_log2",    "Sham-corrected contrast (diabetic defect − diabetic sham) − (non-diabetic defect − non-diabetic sham) of the log2 share in the fraction in which the protein is a DAP: the part of the fraction-level effect attributable to a change in fraction distribution. Empty for DAPs in both fractions."),
+    ("ShareContrast_Fold",    "2^|ShareContrast_log2|; a second-level DAP requires this to be at most ΔAR."),
 ], columns=["_", "__"])
 
 COLUMN_RENAME = {
     "DEP_in_AI":            "DAP_in_AI",
     "DEP_in_AS":            "DAP_in_AS",
     "FC_between_fractions": "AR_between_fractions",
-    "GeoMeanFC_Group1":     "GeoMeanAR_Group1",
-    "GeoMeanFC_Group2":     "GeoMeanAR_Group2",
-    "GeoMeanFC_Ratio":      "GeoMeanAR_Ratio",
 }
 
 with pd.ExcelWriter(OUT_FILE, engine="openpyxl") as writer:

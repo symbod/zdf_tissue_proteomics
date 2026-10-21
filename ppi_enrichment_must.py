@@ -3,6 +3,7 @@ import pandas as pd
 import json
 import time
 import os
+import glob
 
 drugstone.set_api('https://api.stable.drugst.one/')
 drugstone.print_license()
@@ -74,7 +75,11 @@ for comparison in COMPARISONS:
         enrichment_task   = drugstone.new_task(my_genes, ENRICHMENT_PARAMETERS)
         enrichment_result = enrichment_task.get_result()
 
-        # download_json/download_graph write into the current working directory
+        # download_json/download_graph write into the current working directory and never overwrite:
+        # with a result.json from a previous run present they would write result(1).json, which is
+        # not read below. Remove the files of the previous run first.
+        for stale in glob.glob(os.path.join(output_dir, "result*.json")) + glob.glob(os.path.join(output_dir, "graph*.html")):
+            os.remove(stale)
         os.chdir(output_dir)
         enrichment_result.download_json()
         enrichment_result.download_graph()

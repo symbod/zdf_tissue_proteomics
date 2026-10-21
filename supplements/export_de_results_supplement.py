@@ -13,8 +13,8 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-AI_DE = os.path.join(ROOT, "de_analysis_results_AI_RobNorm_scaled/de_results_raw_with_orthologs.csv")
-AS_DE = os.path.join(ROOT, "de_analysis_results_AS_RobNorm_scaled/de_results_raw_with_orthologs.csv")
+AI_DE = os.path.join(ROOT, "de_analysis_results_AI_sham_model/de_results_raw_with_orthologs.csv")
+AS_DE = os.path.join(ROOT, "de_analysis_results_AS_sham_model/de_results_raw_with_orthologs.csv")
 
 OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "de_results_supplement.xlsx")
 
@@ -34,8 +34,8 @@ README = pd.DataFrame([
     ("adj.P.Val",   "BH-adjusted p-value."),
     ("Change",      "Up / Down / No Change."),
     ("Comparison",  "Comparison identifier."),
-    ("Assay",       "Normalized data the analysis was run on (RobNorm_scaled in all rows); the fraction is given by the sheet name."),
-    ("IDs",         "Running row number of the protein in the dataset, assigned by PRONE; no biological meaning."),
+    ("Assay",       "Normalized data the analysis was run on (RobNorm in all rows); the fraction is given by the sheet name."),
+    ("IDs",         "Running row number of the protein in the dataset; no biological meaning."),
     ("Orthologs",   "Human ortholog gene symbols."),
 ], columns=["_", "__"])
 

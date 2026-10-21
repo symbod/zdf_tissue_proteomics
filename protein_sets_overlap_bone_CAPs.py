@@ -32,8 +32,8 @@ BAR_WIDTH  = 0.22
 GROUP_GAP  = 0.08
 
 # Load data that is shared across all threshold combinations
-ai_de     = pd.read_csv("de_analysis_results_AI_RobNorm_scaled/de_results_raw_with_orthologs.csv")
-as_de     = pd.read_csv("de_analysis_results_AS_RobNorm_scaled/de_results_raw_with_orthologs.csv")
+ai_de     = pd.read_csv("de_analysis_results_AI_sham_model/de_results_raw_with_orthologs.csv")
+as_de     = pd.read_csv("de_analysis_results_AS_sham_model/de_results_raw_with_orthologs.csv")
 bone_caps = set(pd.read_csv("input/bone_caps_meta_analysis.csv")["Gene"].dropna().str.upper())
 
 
@@ -323,7 +323,7 @@ README = pd.DataFrame([
     ("",             ""),
     ("Column name",  "Description"),
     ("AR threshold",              "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
-    ("ΔAR",                       "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
+    ("ΔAR",                       "Stability threshold: the largest fold by which a change in fraction distribution may contribute to the sham-corrected fraction-level effect of a second-level DAP (share contrast; see the tissue-level DAPs supplement)."),
     ("Protein set size (N) | Tissue-level DAPs",                    "Number of tissue-level DAPs."),
     ("Protein set size (N) | Tissue-level DAPs + connector proteins","Number of tissue-level DAPs + network connector proteins."),
     ("Protein set size (N) | First-level DAPs",                     "Number of first-level DAPs."),

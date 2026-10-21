@@ -15,16 +15,16 @@ The unprocessed proteomics data is not provided in this repository.
 ## Pipeline
 
 1. `Proteomics_Harmonization.Rmd`: filters the protein IDs to rat and maps them to gene names and human orthologs (proharmed).
-2. `Proteomics_Normalization.Rmd`: per fraction, RobNorm normalization, scaling by the sham medians and outlier detection (PRONE, POMA).
-3. `Proteomics_ExpressionAnalysis.Rmd`: per fraction, differential abundance with limma for both comparisons.
-4. `tissue_level_DEP_collection.R`: consolidates the fraction-specific DAPs into first-level and second-level tissue-level DAPs for all combinations of the AR and ΔAR thresholds (Supplementary Figure S1).
+2. `Proteomics_Normalization.Rmd`: per fraction, RobNorm normalization and outlier detection (PRONE, POMA).
+3. `sham_model_differential_abundance.R`: per fraction, differential abundance with limma using all six groups (genotype × sham / empty / PCL). The diabetic effect is the sham-baseline-corrected contrast (diabetic defect − diabetic sham) − (non-diabetic defect − non-diabetic sham); significance at the fraction level is nominal (p < 0.05, |log2FC| ≥ 1). As a robustness check, the script repeats the test on the LoessF-normalized data and reports the agreement of the DAP sets (Jaccard index); only the RobNorm results are used downstream.
+4. `tissue_level_DEP_collection.R`: consolidates the fraction-specific DAPs into first-level and second-level tissue-level DAPs for all combinations of the AR and ΔAR thresholds (Supplementary Figure S1). The validation rules are implemented once, in `tissue_level_rules.R`, which this script and both permutation tests use. Since the sham model, the rules look at the samples of the four groups of the sham-corrected contrast (defect and sham animals of both genotypes): exclusivity and dominance are judged over all of them, and the stability criterion of the second level is the sham-corrected contrast applied to the log2 share of the protein in the fraction where it is a DAP, i.e. the part of the fraction-level effect attributable to a change in fraction distribution, which must not exceed the ΔAR threshold (1.2-fold). `tissue_level_permutation_check.R` estimates how many tissue-level DAPs are expected by chance (genotype labels shuffled per animal, same shuffle for both fractions).
 5. `ppi_enrichment_must.py`: connector proteins that link the tissue-level DAPs in the human PPI network (Drugst.One, Multi-Steiner tree).
 6. `pathway_enrichment.R`: GO and KEGG enrichment of the first-level DAPs, the tissue-level DAPs and the tissue-level DAPs with connector proteins (clusterProfiler).
 7. Figures and overlap tests:
    - `AI_AS_proteome_investigation.py`: proteins detected and their abundances in AI vs. AS (Figure 4)
    - `AI_AS_dep_per_fraction_investigation.py`: DAPs per fraction and their classification (Figure 5)
    - `protein_sets_overlap_bone_CAPs.py`: overlap of the protein sets with the bone-regeneration reference proteins (Figure 6, Supplementary Table S4)
-   - `scaffold_label_permutation_test.R`: permutation test of the differences between the two comparisons in the number of tissue-level DAPs and in their overlap significance (Section 3.3)
+   - `scaffold_label_permutation_test.R`: permutation test of the difference between the two comparisons in the number of tissue-level DAPs (Section 3.3)
    - `enriched_pathway_overlap_with_bone_pathways.py`: overlap of the enriched terms with the bone-regeneration reference pathways (Figure 7, Supplementary Table S6)
    - `figure_pathway_hierarchy.py`: top enriched terms per protein set and comparison (Figure 8)
 8. `drug_repurposing.py`: drug candidates by TrustRank on the NeDRex network (Drugst.One, Supplementary Table S7).

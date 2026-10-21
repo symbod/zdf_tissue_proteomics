@@ -6,6 +6,7 @@ library(tidyr)
 # Explicitly ensure dplyr functions are prioritized
 select <- dplyr::select
 filter <- dplyr::filter
+source("tissue_level_rules.R")   # the validation rules, shared with the permutation scripts
 
 # ============================================================================
 # CONFIGURATION: Specify comparisons of interest and their labels
@@ -22,12 +23,12 @@ output_dir <- "valid_DEPs"
 dir.create(output_dir, showWarnings = FALSE, recursive = TRUE)
 
 # Read protein abundance data
-abundance_file_AI_unscaled <- "normalization_results_AI/RobNorm_normalized_data.csv"
-abundance_file_AS_unscaled <- "normalization_results_AS/RobNorm_normalized_data.csv"
+abundance_file_AI <- "normalization_results_AI/RobNorm_normalized_data.csv"
+abundance_file_AS <- "normalization_results_AS/RobNorm_normalized_data.csv"
 metadata_file_AI <- "normalization_results_AI/meta_data.csv"
 metadata_file_AS <- "normalization_results_AS/meta_data.csv"
-ai_data_unscaled <- read.csv(abundance_file_AI_unscaled, stringsAsFactors = FALSE, check.names = FALSE)
-as_data_unscaled <- read.csv(abundance_file_AS_unscaled, stringsAsFactors = FALSE, check.names = FALSE)
+ai_data <- read.csv(abundance_file_AI, stringsAsFactors = FALSE, check.names = FALSE)
+as_data <- read.csv(abundance_file_AS, stringsAsFactors = FALSE, check.names = FALSE)
 meta_ai <- read.csv(metadata_file_AI, stringsAsFactors = FALSE)
 meta_as <- read.csv(metadata_file_AS, stringsAsFactors = FALSE)
 
@@ -36,8 +37,8 @@ meta_proteins <- read.csv("input/bone_caps_meta_analysis.csv", stringsAsFactors 
 meta_genes <- unique(toupper(meta_proteins$Gene))
 
 # Read DA results
-de_results_AI <- read.csv("de_analysis_results_AI_RobNorm_scaled/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
-de_results_AS <- read.csv("de_analysis_results_AS_RobNorm_scaled/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
+de_results_AI <- read.csv("de_analysis_results_AI_sham_model/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
+de_results_AS <- read.csv("de_analysis_results_AS_sham_model/de_results_raw_with_orthologs.csv", stringsAsFactors = FALSE)
 # Filter DA results to only include specified comparisons
 de_results_AI <- de_results_AI[de_results_AI$Comparison %in% names(comparisons_of_interest), ]
 de_results_AS <- de_results_AS[de_results_AS$Comparison %in% names(comparisons_of_interest), ]
@@ -46,18 +47,7 @@ de_results_AS <- de_results_AS[de_results_AS$Comparison %in% names(comparisons_o
 ############################################
 # Create Sample_ID to match AI and AS (same animal, condition, scaffold, intervention, timepoint, tissue) 
 # ---
-meta_ai$Sample_ID <- paste(meta_ai$Animal, meta_ai$Condition, meta_ai$Scaffold, 
-                           meta_ai$Intervention, meta_ai$Timepoint, meta_ai$Tissue, sep="_")
-meta_as$Sample_ID <- paste(meta_as$Animal, meta_as$Condition, meta_as$Scaffold, 
-                           meta_as$Intervention, meta_as$Timepoint, meta_as$Tissue, sep="_")
-
-# Match AI and AS samples
-matched_samples <- inner_join(
-  meta_ai %>% select(Sample_ID, Column_AI = Column, 
-                     Condition, Scaffold, Intervention, Timepoint, Tissue, Animal),
-  meta_as %>% select(Sample_ID, Column_AS = Column),
-  by = "Sample_ID"
-)
+matched_samples <- match_sample_pairs(meta_ai, meta_as)
 
 cat("Matched", nrow(matched_samples), "AI/AS sample pairs\n\n")
 ############################################
@@ -89,84 +79,12 @@ parse_group <- function(group_str) {
   )
 }
 
-# Per-protein summary for an arbitrary set of sample IDs, derived from
-# complete_fcs_proteinwise (the single source of truth for per-sample AI/AS data).
-#   - n_samples:         how many sample rows contribute
-#   - ai_exclusive:      never detected in AS across this sample set
-#   - as_exclusive:      never detected in AI across this sample set
-#   - dominant_fraction: "AI"/"AS"/"Tie" if all samples agree, else "Inconsistent"
-#   - geo_mean_fc:       geometric mean of per-sample AI/AS ratios
-#                        (one-fraction-only samples imputed to p99)
-summarise_proteins_across_samples <- function(sample_ids, fc_table, p99_value) {
-  fc_table %>%
-    filter(Sample_ID %in% sample_ids) %>%
-    mutate(fc_imputed = ifelse(is.na(Fold_Change), p99_value, Fold_Change)) %>%
-    group_by(Protein.IDs) %>%
-    summarise(
-      n_samples         = n(),
-      ai_exclusive      = all(is.na(AS_linear)),
-      as_exclusive      = all(is.na(AI_linear)),
-      dominant_fraction = if (n_distinct(Dominant_Fraction) == 1)
-        first(Dominant_Fraction) else "Inconsistent",
-      geo_mean_fc       = exp(mean(log(fc_imputed))),
-      .groups           = "drop"
-    )
-}
-
 ############################################
 # Build per-sample AI/AS ratios for every protein in every sample pair.
 # Retain one-fraction-only detections (NA Fold_Change) so they can be imputed later.
 ############################################
-all_fc <- list()
 cat("Processing", nrow(matched_samples), "sample pairs...\n")
-
-for (i in 1:nrow(matched_samples)) {
-  ai_col <- matched_samples$Column_AI[i]
-  as_col <- matched_samples$Column_AS[i]
-  
-  ai_sample <- data.frame(
-    Protein.IDs = ai_data_unscaled$Protein.IDs,
-    AI_abundance = as.numeric(ai_data_unscaled[[ai_col]]),
-    stringsAsFactors = FALSE
-  )
-  as_sample <- data.frame(
-    Protein.IDs = as_data_unscaled$Protein.IDs,
-    AS_abundance = as.numeric(as_data_unscaled[[as_col]]),
-    stringsAsFactors = FALSE
-  )
-  
-  merged <- full_join(ai_sample, as_sample, by = "Protein.IDs") %>%
-    filter(!is.na(AI_abundance) | !is.na(AS_abundance))
-  
-  merged$AI_linear <- 2^merged$AI_abundance
-  merged$AS_linear <- 2^merged$AS_abundance
-  
-  merged$Fold_Change <- ifelse(
-    !is.na(merged$AI_linear) & !is.na(merged$AS_linear),
-    pmax(merged$AI_linear, merged$AS_linear) / pmin(merged$AI_linear, merged$AS_linear),
-    NA_real_
-  )
-  
-  merged$Dominant_Fraction <- case_when(
-    is.na(merged$AS_linear) & !is.na(merged$AI_linear) ~ "AI",
-    is.na(merged$AI_linear) & !is.na(merged$AS_linear) ~ "AS",
-    merged$AI_linear >  merged$AS_linear               ~ "AI",
-    merged$AS_linear >  merged$AI_linear               ~ "AS",
-    merged$AI_linear == merged$AS_linear               ~ "Tie"
-  )
-  
-  all_fc[[i]] <- data.frame(
-    Protein.IDs       = merged$Protein.IDs,
-    Sample_ID         = matched_samples$Sample_ID[i],
-    Fold_Change       = merged$Fold_Change,
-    AI_linear         = merged$AI_linear,
-    AS_linear         = merged$AS_linear,
-    Dominant_Fraction = merged$Dominant_Fraction,
-    stringsAsFactors  = FALSE
-  )
-}
-
-complete_fcs_proteinwise <- bind_rows(all_fc)
+complete_fcs_proteinwise <- sample_pair_ratios(ai_data, as_data, matched_samples)
 
 cat("Total sample-protein rows:", nrow(complete_fcs_proteinwise), "\n")
 cat("  ...with both fractions measured:",
@@ -175,8 +93,7 @@ cat("  ...with both fractions measured:",
 ############################################
 # Percentiles of the background fold-change distribution
 ############################################
-background_fc <- complete_fcs_proteinwise$Fold_Change
-background_fc <- background_fc[!is.na(background_fc) & is.finite(background_fc)]
+background_fc <- background_ratios(complete_fcs_proteinwise)
 
 median_fc <- median(background_fc)
 p70  <- quantile(background_fc, 0.70)
@@ -256,8 +173,8 @@ for (i in 1:min(10, nrow(extreme_fc))) {
 
 # FC thresholds derived from the background distribution computed above — no hardcoding.
 fc_thresholds        <- round(c(p70, p80, p90), 2)
-# Stability threshold = max allowed ratio between the two groups' geo-mean FCs.
-# e.g. 1.2 means "the larger group's AI/AS separation is at most 1.2-fold the smaller's".
+# Stability threshold = the largest fold by which a change in fraction distribution may contribute to the
+# sham-corrected fraction-level effect of a second-level DAP (share contrast, see tissue_level_rules.R).
 stability_thresholds <- c(1.1, 1.2, 1.3)
 
 
@@ -282,87 +199,25 @@ for (fc_thresh in fc_thresholds) {
       group1 <- parse_group(comp_parts[1])
       group2 <- parse_group(comp_parts[2])
       
-      group1_samples <- matched_samples %>%
-        filter(Condition == group1$condition, Scaffold == group1$scaffold, Timepoint == group1$timepoint)
-      group2_samples <- matched_samples %>%
-        filter(Condition == group2$condition, Scaffold == group2$scaffold, Timepoint == group2$timepoint)
-      comparison_samples <- rbind(group1_samples, group2_samples)
-      
-      # Per-protein summaries: pooled (for dominance/exclusivity) + per-group (for stability)
-      comp_summary   <- summarise_proteins_across_samples(comparison_samples$Sample_ID, complete_fcs_proteinwise, p99)
-      group1_summary <- summarise_proteins_across_samples(group1_samples$Sample_ID,     complete_fcs_proteinwise, p99)
-      group2_summary <- summarise_proteins_across_samples(group2_samples$Sample_ID,     complete_fcs_proteinwise, p99)
-      
-      # Stability: ratio of per-group geo-mean FCs (always >= 1)
-      stability_data <- inner_join(
-        group1_summary %>% select(Protein.IDs, GeoMeanFC_Group1 = geo_mean_fc),
-        group2_summary %>% select(Protein.IDs, GeoMeanFC_Group2 = geo_mean_fc),
-        by = "Protein.IDs"
-      ) %>%
-        mutate(
-          GeoMeanFC_Ratio = pmax(GeoMeanFC_Group1, GeoMeanFC_Group2) /
-            pmin(GeoMeanFC_Group1, GeoMeanFC_Group2)
-        )
-      
+      # The four groups of the sham-corrected contrast: the defect animals and the sham animals of each condition
+      samples_of <- function(condition, scaffold, timepoint) {
+        (matched_samples %>% filter(Condition == condition, Scaffold == scaffold, Timepoint == timepoint))$Sample_ID
+      }
+      sample_groups <- list(
+        group1_defect = samples_of(group1$condition, group1$scaffold, group1$timepoint),
+        group1_sham   = samples_of(group1$condition, "sham",          group1$timepoint),
+        group2_defect = samples_of(group2$condition, group2$scaffold, group2$timepoint),
+        group2_sham   = samples_of(group2$condition, "sham",          group2$timepoint)
+      )
+
       # DAPs in each fraction
       deps_ai <- de_results_AI[de_results_AI$Comparison == comp & de_results_AI$Change != "No Change", ]
       deps_as <- de_results_AS[de_results_AS$Comparison == comp & de_results_AS$Change != "No Change", ]
-      all_deps <- unique(c(deps_ai$Protein.IDs, deps_as$Protein.IDs))
-      
-      # ---------------------------------------------------------------------
-      # Validation in one pass: joins + derivations + final Validation label.
-      # Stability is folded into the Validation case_when (no separate filter).
-      # ---------------------------------------------------------------------
-      validation_table <- tibble(Protein.IDs = all_deps) %>%
-        left_join(deps_ai %>% select(Protein.IDs,
-                                     Direction_AI  = Change,
-                                     Gene.Names_AI = Gene.Names,
-                                     Orthologs_AI  = Orthologs),
-                  by = "Protein.IDs") %>%
-        left_join(deps_as %>% select(Protein.IDs,
-                                     Direction_AS  = Change,
-                                     Gene.Names_AS = Gene.Names,
-                                     Orthologs_AS  = Orthologs),
-                  by = "Protein.IDs") %>%
-        left_join(comp_summary %>% select(Protein.IDs,
-                                          ai_exclusive, as_exclusive,
-                                          dominant_fraction, geo_mean_fc),
-                  by = "Protein.IDs") %>%
-        left_join(stability_data, by = "Protein.IDs") %>%
-        mutate(
-          is_dep_in_ai = !is.na(Direction_AI),
-          is_dep_in_as = !is.na(Direction_AS),
-          single_fraction_dep = case_when(
-            is_dep_in_ai & !is_dep_in_as ~ "AI",
-            is_dep_in_as & !is_dep_in_ai ~ "AS",
-            TRUE                         ~ NA_character_
-          ),
-          dep_type = case_when(
-            is_dep_in_ai & !is_dep_in_as                                ~ "AI_only",
-            is_dep_in_as & !is_dep_in_ai                                ~ "AS_only",
-            is_dep_in_ai & is_dep_in_as & Direction_AI == Direction_AS  ~ "Both_same",
-            is_dep_in_ai & is_dep_in_as & Direction_AI != Direction_AS  ~ "Both_opposite"
-          ),
-          reached_second_level = (is_dep_in_ai | is_dep_in_as) & !(is_dep_in_ai & is_dep_in_as) &
-            !is.na(geo_mean_fc) &
-            !(ai_exclusive & is_dep_in_ai) &
-            !(as_exclusive & is_dep_in_as),
-          qualifies_dominant = reached_second_level & geo_mean_fc >= fc_thresh &
-            !is.na(dominant_fraction) & dominant_fraction == single_fraction_dep,
-          is_stable_between_groups = !is.na(GeoMeanFC_Ratio) & GeoMeanFC_Ratio <= stab_thresh,
-          Validation = case_when(
-            ai_exclusive & is_dep_in_ai ~
-              "Exclusive to AI fraction",
-            as_exclusive & is_dep_in_as ~
-              "Exclusive to AS fraction",
-            dep_type == "Both_same" ~
-              "Significant in both fractions (same direction)",
-            qualifies_dominant & is_stable_between_groups ~
-              paste0("Dominant and stable in ", single_fraction_dep,
-                     " fraction (geo-mean FC=", round(geo_mean_fc, 2), ")"),
-            TRUE ~ NA_character_
-          )
-        )
+
+      # Validation (tissue_level_rules.R): exclusivity and dominance over the samples of the four groups,
+      # stability from the share contrast, and the Validation label of every DAP
+      validation_table <- validate_tissue_level(deps_ai, deps_as, sample_groups,
+                                                complete_fcs_proteinwise, p99, fc_thresh, stab_thresh)
       
       write.csv(validation_table,
                 file.path(thresh_dir, paste0("validation_table_", comp, ".csv")),
@@ -396,9 +251,12 @@ for (fc_thresh in fc_thresholds) {
           FC_between_fractions = geo_mean_fc,
           Dominant_Fraction    = dominant_fraction,
           Validation,
-          GeoMeanFC_Group1,
-          GeoMeanFC_Group2,
-          GeoMeanFC_Ratio
+          AIShare_Group1_Defect,
+          AIShare_Group1_Sham,
+          AIShare_Group2_Defect,
+          AIShare_Group2_Sham,
+          ShareContrast_log2,
+          ShareContrast_Fold
         )
       
       if (nrow(validated_deps) > 0) {
@@ -410,7 +268,7 @@ for (fc_thresh in fc_thresholds) {
       dominant_removed[[comp]]             <- n_dominant_pre_stability - n_dominant_post_stability
       tested_second_level_per_comp[[comp]] <- tested_second_level
       
-      cat("  Total unique DAPs (AI+AS):", length(all_deps), "\n")
+      cat("  Total unique DAPs (AI+AS):", nrow(validation_table), "\n")
       cat("  Validated DAPs:", nrow(validated_deps), "\n")
     }
     
@@ -544,7 +402,7 @@ for (fc_thresh in fc_thresholds) {
       theme_minimal() +
       labs(
         title    = "DAPs with Two-Level Validation Strategy",
-        subtitle = paste0("FC >= ", fc_thresh, " | Stability ratio <= ", stab_thresh, "-fold"),
+        subtitle = paste0("AR >= ", fc_thresh, " | share contrast <= ", stab_thresh, "-fold"),
         y        = "Number of Proteins",
         x        = "",
         fill     = ""

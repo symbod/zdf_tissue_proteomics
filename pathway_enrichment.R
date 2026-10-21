@@ -27,8 +27,8 @@ fc_thresholds <- c(4.04, 5.59, 9.32)
 stability_thresholds <- c(1.1, 1.2, 1.3)
 
 # Paths to full DA results for background universe
-ai_base_path <- "de_analysis_results_AI_RobNorm_scaled/"
-as_base_path <- "de_analysis_results_AS_RobNorm_scaled/"
+ai_base_path <- "de_analysis_results_AI_sham_model/"
+as_base_path <- "de_analysis_results_AS_sham_model/"
 
 
 # ============================================================================

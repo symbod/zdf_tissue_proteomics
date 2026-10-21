@@ -31,7 +31,7 @@ README = pd.DataFrame([
     ("",             ""),
     ("Threshold",           "Description"),
     ("AR",                 "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),
-    ("ΔAR",                "Stability threshold: maximum ratio of group-level geometric mean abundance ratios allowed for a second-level DAP to be considered stable across groups."),
+    ("ΔAR",                "Stability threshold: the largest fold by which a change in fraction distribution may contribute to the sham-corrected fraction-level effect of a second-level DAP (share contrast; see the tissue-level DAPs supplement)."),
     ("",             ""),
     ("Protein set",  "Description"),
     ("tis level",    "Tissue-level DAPs (first- and second-level combined)."),
