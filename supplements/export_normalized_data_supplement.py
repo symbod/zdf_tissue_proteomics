@@ -2,7 +2,7 @@
 Exports the RobNorm normalized abundance data and metadata for AI and AS fractions
 into a single Excel file, for use as a supplement.
 
-Output: normalized_data_supplement.xlsx
+Output: Supplementary_Table_S1.xlsx
   - Sheet "AI normalized data"        : RobNorm-normalized log2 abundances for AI fraction
   - Sheet "AS normalized data"        : RobNorm-normalized log2 abundances for AS fraction
   - Sheet "AI metadata"               : sample metadata for AI fraction
@@ -19,7 +19,7 @@ AS_DATA        = os.path.join(ROOT, "normalization_results_AS/RobNorm_normalized
 AI_META        = os.path.join(ROOT, "normalization_results_AI/meta_data.csv")
 AS_META        = os.path.join(ROOT, "normalization_results_AS/meta_data.csv")
 
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "normalized_data_supplement.xlsx")
+OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Supplementary_Table_S1.xlsx")
 
 ai_data        = pd.read_csv(AI_DATA)
 as_data        = pd.read_csv(AS_DATA)

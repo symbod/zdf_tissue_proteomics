@@ -297,7 +297,7 @@ results_df["Protein set"] = results_df["Protein set"].map(SET_LABELS_MAP)
 
 SUPP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "supplements")
 os.makedirs(SUPP_DIR, exist_ok=True)
-OUT_FILE = os.path.join(SUPP_DIR, "pathway_bone_overlap_supplement.xlsx")
+OUT_FILE = os.path.join(SUPP_DIR, "Supplementary_Table_S6.xlsx")
 README = pd.DataFrame([
     ("Sheet name",  "Content"),
     ("Empty defect", "Diabetic vs. non-diabetic, empty bone defect."),

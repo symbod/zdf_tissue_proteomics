@@ -19,7 +19,7 @@ The unprocessed proteomics data is not provided in this repository.
 3. `sham_model_differential_abundance.R`: per fraction, differential abundance with limma using all six groups (genotype × sham / empty / PCL). The diabetic effect is the sham-baseline-corrected contrast (diabetic defect − diabetic sham) − (non-diabetic defect − non-diabetic sham); significance at the fraction level is nominal (p < 0.05, |log2FC| ≥ 1). As a robustness check, the script repeats the test on the LoessF-normalized data and reports the agreement of the DAP sets (Jaccard index); only the RobNorm results are used downstream.
 4. `tissue_level_DEP_collection.R`: consolidates the fraction-specific DAPs into first-level and second-level tissue-level DAPs for all combinations of the AR and ΔAR thresholds (Supplementary Figure S1). The validation rules are implemented once, in `tissue_level_rules.R`, which this script and both permutation tests use. Since the sham model, the rules look at the samples of the four groups of the sham-corrected contrast (defect and sham animals of both genotypes): exclusivity and dominance are judged over all of them, and the stability criterion of the second level is the sham-corrected contrast applied to the log2 share of the protein in the fraction where it is a DAP, i.e. the part of the fraction-level effect attributable to a change in fraction distribution, which must not exceed the ΔAR threshold (1.2-fold). `tissue_level_permutation_check.R` estimates how many tissue-level DAPs are expected by chance (genotype labels shuffled per animal, same shuffle for both fractions).
 5. `ppi_enrichment_must.py`: connector proteins that link the tissue-level DAPs in the human PPI network (Drugst.One, Multi-Steiner tree).
-6. `pathway_enrichment.R`: GO and KEGG enrichment of the first-level DAPs, the tissue-level DAPs and the tissue-level DAPs with connector proteins (clusterProfiler).
+6. `pathway_enrichment.R`: GO and KEGG enrichment of the first-level DAPs, the tissue-level DAPs and the tissue-level DAPs with connector proteins (clusterProfiler, on the human orthologs).
 7. Figures and overlap tests:
    - `AI_AS_proteome_investigation.py`: proteins detected and their abundances in AI vs. AS (Figure 4)
    - `AI_AS_dep_per_fraction_investigation.py`: DAPs per fraction and their classification (Figure 5)
@@ -28,6 +28,6 @@ The unprocessed proteomics data is not provided in this repository.
    - `enriched_pathway_overlap_with_bone_pathways.py`: overlap of the enriched terms with the bone-regeneration reference pathways (Figure 7, Supplementary Table S6)
    - `figure_pathway_hierarchy.py`: top enriched terms per protein set and comparison (Figure 8)
 8. `drug_repurposing.py`: drug candidates by TrustRank on the NeDRex network (Drugst.One, Supplementary Table S7).
-9. `supplements/export_*.py`: Supplementary Tables S1, S2, S3 and S5.
+9. `supplements/export_*.py`: Supplementary Tables S1, S2, S3 and S5. All supplementary tables are written to `supplements/` under their paper names (`Supplementary_Table_S1.xlsx` to `Supplementary_Table_S7.xlsx`); `supplements/Supplementary_Figure_S1.png` is the captioned version of `valid_DEPs/FC_distribution.png`.
 
 The main results of the paper use the AR threshold 5.59 (80th percentile of the background abundance-ratio distribution) and ΔAR 1.2.

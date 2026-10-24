@@ -2,7 +2,7 @@
 Exports the validated DAPs for every threshold combination and comparison into
 a single Excel file, one sheet per (threshold combination × comparison).
 
-Output: tissue_level_deps_supplement.xlsx  — 18 sheets (9 thresholds × 2 comparisons)
+Output: Supplementary_Table_S3.xlsx  — 18 sheets (9 thresholds × 2 comparisons)
 Sheet naming: "AR{fc} ΔAR{stab} {comparison label}"
 """
 
@@ -19,7 +19,7 @@ COMPARISONS = {
     "diabetic_PCL_42-nondiabetic_PCL_42":     "PCL scaffold",
 }
 
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "tissue_level_deps_supplement.xlsx")
+OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Supplementary_Table_S3.xlsx")
 
 README = pd.DataFrame([
     ("Sheet name",           "Content"),

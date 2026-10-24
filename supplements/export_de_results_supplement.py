@@ -3,7 +3,7 @@ Exports the DA analysis results (all tested proteins, including non-significant)
 with ortholog annotations for AI and AS fractions into a single Excel file,
 for use as a supplement.
 
-Output: de_results_supplement.xlsx
+Output: Supplementary_Table_S2.xlsx
   - Sheet "AI DA results" : full DA results for the AI fraction
   - Sheet "AS DA results" : full DA results for the AS fraction
 """
@@ -16,7 +16,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 AI_DE = os.path.join(ROOT, "de_analysis_results_AI_sham_model/de_results_raw_with_orthologs.csv")
 AS_DE = os.path.join(ROOT, "de_analysis_results_AS_sham_model/de_results_raw_with_orthologs.csv")
 
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "de_results_supplement.xlsx")
+OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Supplementary_Table_S2.xlsx")
 
 ai_de = pd.read_csv(AI_DE)
 as_de = pd.read_csv(AS_DE)

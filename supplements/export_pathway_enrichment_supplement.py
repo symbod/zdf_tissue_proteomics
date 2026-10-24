@@ -5,7 +5,7 @@ Both comparisons are combined in each sheet — the 'Comparison' column distingu
 set1 (tis level) and set2 (tis+netwk): 9 sheets each (3 AR × 3 stability), named "AR{fc}-ΔAR{stab} {label}"
 set3 (1st level): 1 sheet only — threshold-independent.
 
-Output: pathway_enrichment_supplement.xlsx  — 19 sheets total
+Output: Supplementary_Table_S5.xlsx  — 19 sheets total
 """
 
 import os
@@ -21,7 +21,7 @@ COMPARISONS = [
     "diabetic_PCL_42-nondiabetic_PCL_42",
 ]
 
-OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "pathway_enrichment_supplement.xlsx")
+OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Supplementary_Table_S5.xlsx")
 
 README = pd.DataFrame([
     ("Sheet name",         "Content"),
