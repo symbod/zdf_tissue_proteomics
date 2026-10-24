@@ -408,7 +408,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
     _radii   = [np.sqrt(s / np.pi) for s in _dot_s]
 
     _EDGE_GAP_PT = 6   # equal gap between successive blob edges, in display points
-    _TITLE_H_PT  = 9   # vertical space for the title
+    _TITLE_H_PT  = 18  # vertical space for the two-line title
 
     # Cumulative centre positions (pt from top of inset, downward)
     _centers = [_TITLE_H_PT + _radii[0]]
@@ -424,7 +424,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
     _size_ax.set_ylim(_total_h_pt, 0)  # 0 at top
     _size_ax.axis("off")
 
-    _size_ax.text(0.05, 0, "−log₁₀(q-value)",
+    _size_ax.text(0.05, 0, "−log₁₀\n(BH adj. p-value)",
                   fontsize=6.5, fontweight="bold", va="top", ha="left")
     for _c, _s, _lbl in zip(_centers, _dot_s, _lbls):
         _size_ax.scatter([0.22], [_c], s=_s, color="0.55",

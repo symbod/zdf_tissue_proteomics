@@ -31,7 +31,7 @@ README = pd.DataFrame([
     ("Gene.Names",  "Gene symbols."),
     ("logFC",       "Log2 fold change (diabetic / non-diabetic)."),
     ("P.Value",     "Unadjusted p-value."),
-    ("adj.P.Val",   "BH-adjusted p-value."),
+    ("adj.P.Val",   "Benjamini-Hochberg adjusted p-value."),
     ("Change",      "Up / Down / No Change."),
     ("Comparison",  "Comparison identifier."),
     ("Assay",       "Normalized data the analysis was run on (RobNorm in all rows); the fraction is given by the sheet name."),
