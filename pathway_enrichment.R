@@ -1,23 +1,26 @@
 # Performs GO and KEGG enrichment analysis on validated DAPs across multiple
-# FC/stability threshold combinations. Outputs per threshold combination:
+# FC/stability threshold combinations. The enrichment is run on the human
+# orthologs of the proteins (org.Hs.eg.db, KEGG hsa), the gene space of the
+# network, drug-repurposing and bone-reference steps; one ortholog per protein
+# group (the alphabetically first, as in ppi_enrichment_must.py), proteins
+# without an ortholog are dropped. Outputs per threshold combination:
 # (1) <comparison>_<set>_enrichment_complete.csv — all tested terms, with a
 #     "Significant" flag (p.adjust < 0.05), and
 # (2) <comparison>_enrichment_summary.csv — per-set counts.
 
 # Enrichment Analysis on Validated DAPs
 library(clusterProfiler)
-library(org.Rn.eg.db)
-library(proharmed)
+library(org.Hs.eg.db)
 library(dplyr)
 
 cat("\n--- clusterProfiler enrichGO/enrichKEGG defaults used in this run ---\n")
 print(args(enrichGO))
 print(args(enrichKEGG))
 cat("clusterProfiler version:", as.character(packageVersion("clusterProfiler")), "\n")
-cat("org.Rn.eg.db version:", as.character(packageVersion("org.Rn.eg.db")), "\n")
+cat("org.Hs.eg.db version:", as.character(packageVersion("org.Hs.eg.db")), "\n")
 cat("-----------------------------------------------------------------\n\n")
 
-citation("org.Rn.eg.db")
+citation("org.Hs.eg.db")
 
 # Setup paths
 base_output_dir <- "valid_DEPs/"
@@ -39,42 +42,34 @@ convert_to_entrez <- function(gene_names) {
   entrez_ids <- bitr(gene_names, 
                      fromType = "SYMBOL", 
                      toType = "ENTREZID", 
-                     OrgDb = org.Rn.eg.db)
+                     OrgDb = org.Hs.eg.db)
   return(entrez_ids$ENTREZID)
 }
 
-# Function to convert human gene symbols to rat gene symbols via proharmed
-convert_human_to_rat_symbols <- function(human_gene_names) {
-  cat("\n--- Converting human genes to rat orthologs ---\n")
-  
-  # Create a minimal dataframe for proharmed
-  temp_df <- data.frame(HumanGenes = human_gene_names)
-  
-  # Use proharmed to map orthologs from human to rat
-  orthologs_result <- proharmed::map_orthologs(
-    data = temp_df, 
-    gene_column = "HumanGenes", 
-    organism = "human",
-    tar_organism = "rat",
-    res_column = "RatOrthologs",
-    keep_empty = FALSE  # Remove genes without orthologs
-  )
-  
-  orthologs_data <- orthologs_result$Modified_Data
-  
-  if (nrow(orthologs_data) == 0) {
-    cat("No rat orthologs found\n")
-    return(character(0))
+# One human gene symbol per protein group: the alphabetically first (byte order,
+# like Python's sorted()) of its ';'-separated orthologs, the rule of
+# ppi_enrichment_must.py and drug_repurposing.py. Groups without an ortholog are dropped.
+human_orthologs <- function(ortholog_strings) {
+  ortholog_strings <- ortholog_strings[!is.na(ortholog_strings) & ortholog_strings != ""]
+  first_ortholog <- function(orthologs) sort(orthologs, method = "radix")[1]
+  unique(vapply(strsplit(ortholog_strings, ";"), first_ortholog, character(1)))
+}
+
+# KEGG is queried online for every set; a dropped connection is retried before giving up
+enrich_kegg_with_retry <- function(gene_entrez, universe, attempts = 3, wait_seconds = 60) {
+  for (attempt in seq_len(attempts)) {
+    result <- tryCatch(enrichKEGG(gene = gene_entrez,
+                                  universe = universe,
+                                  organism = 'hsa',
+                                  pAdjustMethod = "BH",
+                                  pvalueCutoff = 1,
+                                  qvalueCutoff = 1),
+                       error = function(e) e)
+    if (!inherits(result, "error")) return(result)
+    cat("enrichKEGG attempt", attempt, "failed:", conditionMessage(result), "\n")
+    if (attempt < attempts) Sys.sleep(wait_seconds)
   }
-  
-  # Extract rat gene symbols (they come as lists, need to unlist)
-  rat_symbols <- unlist(orthologs_data$RatOrthologs)
-  rat_symbols <- unique(rat_symbols[!is.na(rat_symbols)])
-  
-  cat("Found", length(rat_symbols), "rat ortholog symbols from", 
-      length(human_gene_names), "human genes\n")
-  
-  return(rat_symbols)
+  stop("enrichKEGG failed after ", attempts, " attempts")
 }
 
 # Function to run enrichment analysis with custom background
@@ -112,7 +107,7 @@ run_enrichment_with_background <- function(gene_names, dataset_name, universe) {
   # Run enrichments with custom background
   bp <- enrichGO(gene = gene_entrez,
                  universe = universe,
-                 OrgDb = org.Rn.eg.db,
+                 OrgDb = org.Hs.eg.db,
                  ont = "BP",
                  pAdjustMethod = "BH",
                  pvalueCutoff = 1,  # Changed to 1 to get all results
@@ -121,7 +116,7 @@ run_enrichment_with_background <- function(gene_names, dataset_name, universe) {
   
   mf <- enrichGO(gene = gene_entrez,
                  universe = universe,
-                 OrgDb = org.Rn.eg.db, 
+                 OrgDb = org.Hs.eg.db, 
                  ont = "MF",
                  pAdjustMethod = "BH",
                  pvalueCutoff = 1,
@@ -130,19 +125,14 @@ run_enrichment_with_background <- function(gene_names, dataset_name, universe) {
   
   cc <- enrichGO(gene = gene_entrez,
                  universe = universe,
-                 OrgDb = org.Rn.eg.db,
+                 OrgDb = org.Hs.eg.db,
                  ont = "CC", 
                  pAdjustMethod = "BH",
                  pvalueCutoff = 1,
                  qvalueCutoff = 1,
                  readable = TRUE)
   
-  kegg <- enrichKEGG(gene = gene_entrez,
-                     universe = universe,
-                     organism = 'rno',
-                     pAdjustMethod = "BH",
-                     pvalueCutoff = 1,
-                     qvalueCutoff = 1)
+  kegg <- enrich_kegg_with_retry(gene_entrez, universe)
   
   return(list(BP = bp, MF = mf, CC = cc, KEGG = kegg))
 }
@@ -189,31 +179,28 @@ for (fc_thresh in fc_thresholds) {
       # Load MUST connector proteins for tissue-level DAPs (both_levels network run)
       exception_file <- file.path("network_enrichment_results", comparison, "both_levels", "exception_proteins.csv")
       exception_genes <- NULL
-      exception_rat <- NULL
       exception_entrez <- NULL
       exception_entrez_count <- 0
       if (file.exists(exception_file)) {
         exceptions <- read.csv(exception_file)
-        exception_genes <- exceptions$Gene
+        exception_genes <- exceptions$Gene   # human gene symbols of the NeDRex network
 
-        # Convert human to rat and get Entrez IDs
-        exception_rat <- convert_human_to_rat_symbols(exception_genes)
-        exception_entrez <- convert_to_entrez(exception_rat)
+        exception_entrez <- convert_to_entrez(exception_genes)
         exception_entrez_count <- length(exception_entrez)
       }
 
       # CREATE 3 SETS matching the bone meta-analysis overlap analysis:
       # Set 1: All tissue-level DAPs (first-level + second-level)
-      set1_genes <- unique(comp_deps$Gene.Names)
+      set1_genes <- human_orthologs(comp_deps$Orthologs)
 
       # Set 2: Tissue-level DAPs + MUST connector proteins
       set2_genes <- set1_genes
       if (!is.null(exception_genes)) {
-        set2_genes <- unique(c(set1_genes, exception_rat))
+        set2_genes <- unique(c(set1_genes, exception_genes))
       }
 
       # Set 3: First-level DAPs only
-      set3_genes <- unique(first_level_deps$Gene.Names)
+      set3_genes <- human_orthologs(first_level_deps$Orthologs)
 
       # Define the 3 sets
       sets_to_analyze <- list(
@@ -222,9 +209,9 @@ for (fc_thresh in fc_thresholds) {
         list(name = "set3_first_level", genes = set3_genes)
       )
       
-      # Read FULL DA results to get background universe
-      ai_file_full <- file.path(ai_base_path, "de_results_raw.csv") 
-      as_file_full <- file.path(as_base_path, "de_results_raw.csv")
+      # Read FULL DA results (with human orthologs) to get background universe
+      ai_file_full <- file.path(ai_base_path, "de_results_raw_with_orthologs.csv") 
+      as_file_full <- file.path(as_base_path, "de_results_raw_with_orthologs.csv")
       
       # Read full DA results
       full_ai <- read.csv(ai_file_full)
@@ -239,20 +226,9 @@ for (fc_thresh in fc_thresholds) {
         next
       }
       
-      # Get all gene names for background universe
-      full_ai_genes <- unique(full_ai_comp$Gene.Names)
-      full_as_genes <- unique(full_as_comp$Gene.Names)
-      
-      # Clean gene names
-      valid_ai_genes <- full_ai_genes[!is.na(full_ai_genes) & 
-                                        full_ai_genes != "" & 
-                                        full_ai_genes != "NA"]
-      valid_as_genes <- full_as_genes[!is.na(full_as_genes) & 
-                                        full_as_genes != "" & 
-                                        full_as_genes != "NA"]
-      
-      # Combine both backgrounds for universe
-      all_background_genes <- unique(c(valid_ai_genes, valid_as_genes))
+      # Human orthologs of all proteins tested in either fraction = background universe
+      all_background_genes <- unique(c(human_orthologs(full_ai_comp$Orthologs),
+                                       human_orthologs(full_as_comp$Orthologs)))
       # Convert background to Entrez first
       background_entrez <- convert_to_entrez(all_background_genes)
       
@@ -328,7 +304,6 @@ for (fc_thresh in fc_thresholds) {
             Total_Genes_Input = length(genes),
             Total_Genes_Tested = genes_tested,
             Connector_Proteins_Human = ifelse(is_set2, length(exception_genes %||% character(0)), 0),
-            Connector_Proteins_Rat = ifelse(is_set2, length(exception_rat %||% character(0)), 0),
             Connector_Proteins_Entrez = ifelse(is_set2, exception_entrez_count, 0),
             Background_Universe = length(current_background),
             Enrichment_Performed = !is.null(enrichment_results),

@@ -8,7 +8,7 @@ from scipy.stats import hypergeom
 
 
 def normalize_pathway_id(pid):
-    """Convert organism-specific KEGG IDs (e.g. rno00010) to KEGG: format (KEGG:00010).
+    """Convert organism-specific KEGG IDs (e.g. hsa00010) to KEGG: format (KEGG:00010).
     GO IDs are already in the correct format and pass through unchanged."""
     if re.match(r'^[a-z]{3}\d+$', str(pid)):
         return "KEGG:" + pid[3:]
@@ -68,14 +68,16 @@ for fc in FC_THRESHOLDS:
 
         # ── Collect counts and p-values per comparison × set ─────────────────
 
-        PATHWAY_N     = {}
-        pathway_pvals = {}
+        PATHWAY_N      = {}
+        pathway_pvals  = {}
+        pathway_counts = {}   # (overlap, significant terms) per set, shown as labels in panel (b)
         sig_ids_store = {ck: {} for ck in COMPARISONS}
         complete_ids_store = {ck: {} for ck in COMPARISONS}
 
         for comp_key, comp_label in COMPARISONS.items():
             n_sig_list = []
             p_list     = []
+            count_list = []
 
             for set_dir in SET_DIRS:
                 fname = f"{comp_key}_{set_dir}_enrichment_complete.csv"
@@ -85,6 +87,7 @@ for fc in FC_THRESHOLDS:
                     print(f"  Missing: {fpath}")
                     n_sig_list.append(0)
                     p_list.append(1.0)
+                    count_list.append((0, 0))
                     sig_ids_store[comp_key][set_dir] = set()
                     complete_ids_store[comp_key][set_dir] = set()
                     continue
@@ -125,12 +128,14 @@ for fc in FC_THRESHOLDS:
 
                 n_sig_list.append(N)
                 p_list.append(p)
+                count_list.append((k, N))
 
                 print(f"\n  {comp_label} / {set_dir}:")
                 print(f"    Terms tested={M}  bone in tested={n}  significant={N}  bone in significant={k}  p={p:.2e}")
 
-            PATHWAY_N[comp_label]     = n_sig_list
-            pathway_pvals[comp_label] = p_list
+            PATHWAY_N[comp_label]      = n_sig_list
+            pathway_pvals[comp_label]  = p_list
+            pathway_counts[comp_label] = count_list
 
         # ── Shared pathways (significant in both comparisons) ─────────────────
 
@@ -143,7 +148,8 @@ for fc in FC_THRESHOLDS:
         # Overlap significance of the shared pathways. The population is the terms
         # tested in both comparisons, counted as above (M = tested terms, n = those
         # in the bone-regeneration reference); a shared significant term is always in it.
-        pathway_pvals["Shared"] = []
+        pathway_pvals["Shared"]  = []
+        pathway_counts["Shared"] = []
         for set_dir in SET_DIRS:
             tested_both = complete_ids_store[comp_keys_list[0]][set_dir] & complete_ids_store[comp_keys_list[1]][set_dir]
             shared      = sig_ids_store[comp_keys_list[0]][set_dir] & sig_ids_store[comp_keys_list[1]][set_dir]
@@ -156,6 +162,7 @@ for fc in FC_THRESHOLDS:
             expected = (N * n) / M if M > 0 else 0
             p        = hypergeom.sf(k - 1, M, n, N) if M > 0 else 1.0
             pathway_pvals["Shared"].append(p)
+            pathway_counts["Shared"].append((k, N))
 
             _results.append({
                 "AR threshold":          fc,
@@ -227,7 +234,7 @@ for fc in FC_THRESHOLDS:
             neg_log   = [-np.log10(p) for p in pathway_pvals[comp]]
             offset    = (ci - (n_pval - 1) / 2) * (BAR_WIDTH + GROUP_GAP / 2)
             positions = x + offset
-            for pos, val in zip(positions, neg_log):
+            for pos, val, (k, N) in zip(positions, neg_log, pathway_counts[comp]):
                 val_clipped = min(val, ymax_b)
                 ax_b.scatter(pos, val_clipped, color=COLORS[comp],
                              s=100, zorder=3, edgecolors="white", linewidths=0.6)
@@ -237,11 +244,13 @@ for fc in FC_THRESHOLDS:
                         arrowprops=dict(arrowstyle="-|>", color=COLORS[comp], lw=2.0),
                         zorder=6,
                     )
+                ax_b.text(pos, val_clipped + ymax_b * 0.035, f"{k}/{N}", ha="center", va="bottom",
+                          fontsize=6.5, color=COLORS[comp], fontweight="bold", zorder=6)
 
         sig_line = -np.log10(0.05)
         ax_b.axhline(sig_line, color=LINE_COLOR, linewidth=1.8, linestyle="--", zorder=5)
-        ax_b.text(-0.55, sig_line + ymax_b * 0.02, "p = 0.05",
-                  ha="left", va="bottom", fontsize=8, color=LINE_COLOR)
+        ax_b.text(1.01, sig_line, "p = 0.05", transform=ax_b.get_yaxis_transform(),
+                  ha="left", va="center", fontsize=8, color=LINE_COLOR, clip_on=False)
 
         ax_b.set_ylabel("−log₁₀(p-value)\n(overlap of significantly enriched pathways\nwith bone-regeneration reference pathways)", fontsize=10, labelpad=6)
         ax_b.set_ylim(0, ymax_b)
@@ -263,6 +272,8 @@ for fc in FC_THRESHOLDS:
                    handlelength=1.2, handletextpad=0.5, columnspacing=1.2,
                    title="Comparison",
                    title_fontproperties={"weight": "bold", "size": 10})
+        fig.text(0.53, -0.03, "Numbers: overlap with the reference / set size",
+                 ha="center", va="top", fontsize=8, color=LINE_COLOR)
 
         # ── Save ──────────────────────────────────────────────────────────────
 

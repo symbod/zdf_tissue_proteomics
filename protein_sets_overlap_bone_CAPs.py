@@ -68,8 +68,9 @@ for fc in FC_THRESHOLDS:
 
         summary = pd.read_csv(os.path.join(THRESH_DIR, "summary_statistics.csv")).set_index("Comparison")
 
-        PROTEIN_N     = {}
-        protein_pvals = {}
+        PROTEIN_N      = {}
+        protein_pvals  = {}
+        protein_counts = {}   # (overlap, set size) per set, shown as labels in panel (b)
         valid_deps    = pd.read_csv(os.path.join(THRESH_DIR, "validated_DEPs.csv"))
         _gene_sets    = {}
         _tested       = {}
@@ -130,8 +131,9 @@ for fc in FC_THRESHOLDS:
             tissue_lvl = human_orthologs(cd["Orthologs"])
             _gene_sets[comp_key] = [first_lvl, tissue_lvl, tissue_lvl | exc_prots]
 
-            PROTEIN_N[comp_label]     = [s3, s1, s2]
-            protein_pvals[comp_label] = [p3, p1, p2]
+            PROTEIN_N[comp_label]      = [s3, s1, s2]
+            protein_pvals[comp_label]  = [p3, p1, p2]
+            protein_counts[comp_label] = [(o3, s3), (o1, s1), (o2, s2)]
 
             # Same sets by name; their overlap with the reference proteins is listed in the supplement
             gene_set_of = {"First-level DAPs": first_lvl, "Tissue-level DAPs": tissue_lvl,
@@ -181,7 +183,8 @@ for fc in FC_THRESHOLDS:
         n_shared    = int(tested_both["Orthologs"].dropna().map(
             lambda o: any(g.strip().upper() in bone_caps for g in o.split(";"))).sum())
         genes_both  = human_orthologs(tested_both["Orthologs"])
-        protein_pvals["Shared"] = []
+        protein_pvals["Shared"]  = []
+        protein_counts["Shared"] = []
         for i, set_label in enumerate(["First-level DAPs", "Tissue-level DAPs",
                                        "Tissue-level DAPs + connector proteins"]):
             shared    = _gene_sets[comp_keys[0]][i] & _gene_sets[comp_keys[1]][i]
@@ -190,6 +193,7 @@ for fc in FC_THRESHOLDS:
             o = len(shared & bone_caps)
             p = hypergeom.sf(o - 1, pop, succ, len(shared))
             protein_pvals["Shared"].append(p)
+            protein_counts["Shared"].append((o, len(shared)))
             _results.append({
                 "AR threshold":             fc,
                 "ΔAR":                      stab,
@@ -258,7 +262,7 @@ for fc in FC_THRESHOLDS:
             neg_log   = [-np.log10(p) for p in protein_pvals[comp]]
             offset    = (ci - (n_pval - 1) / 2) * (BAR_WIDTH + GROUP_GAP / 2)
             positions = x + offset
-            for pos, val in zip(positions, neg_log):
+            for pos, val, (k, N) in zip(positions, neg_log, protein_counts[comp]):
                 val_clipped = min(val, ymax_b)
                 ax_b.scatter(pos, val_clipped, color=COLORS[comp],
                              s=100, zorder=3, edgecolors="white", linewidths=0.6)
@@ -268,11 +272,13 @@ for fc in FC_THRESHOLDS:
                         arrowprops=dict(arrowstyle="-|>", color=COLORS[comp], lw=2.0),
                         zorder=6,
                     )
+                ax_b.text(pos, val_clipped + ymax_b * 0.035, f"{k}/{N}", ha="center", va="bottom",
+                          fontsize=6.5, color=COLORS[comp], fontweight="bold", zorder=6)
 
         sig_line = -np.log10(0.05)
         ax_b.axhline(sig_line, color=LINE_COLOR, linewidth=1.8, linestyle="--", zorder=5)
-        ax_b.text(-0.55, sig_line + ymax_b * 0.02, "p = 0.05",
-                  ha="left", va="bottom", fontsize=8, color=LINE_COLOR)
+        ax_b.text(1.01, sig_line, "p = 0.05", transform=ax_b.get_yaxis_transform(),
+                  ha="left", va="center", fontsize=8, color=LINE_COLOR, clip_on=False)
 
         ax_b.set_ylabel("−log₁₀(p-value)\n(overlap with bone-regeneration\nreference proteins)", fontsize=10, labelpad=6)
         ax_b.set_ylim(0, ymax_b)
@@ -294,6 +300,8 @@ for fc in FC_THRESHOLDS:
                    handlelength=1.2, handletextpad=0.5, columnspacing=1.2,
                    title="Comparison",
                    title_fontproperties={"weight": "bold", "size": 10})
+        fig.text(0.53, -0.03, "Numbers: overlap with the reference / set size",
+                 ha="center", va="top", fontsize=8, color=LINE_COLOR)
 
         # ── Save ──────────────────────────────────────────────────────────────
 

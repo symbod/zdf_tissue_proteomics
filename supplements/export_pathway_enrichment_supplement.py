@@ -49,7 +49,7 @@ README = pd.DataFrame([
     ("pvalue",       "Unadjusted p-value."),
     ("p.adjust",     "BH-adjusted p-value."),
     ("qvalue",       "q-value (FDR)."),
-    ("geneID",       "Contributing genes."),
+    ("geneID",       "Contributing genes (human gene symbols; one ortholog per protein group)."),
     ("Count",        "Hit count."),
     ("Category",     "BP / MF / CC / KEGG."),
     ("Comparison",   "Comparison identifier."),

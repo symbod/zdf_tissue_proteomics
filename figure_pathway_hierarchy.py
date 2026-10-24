@@ -22,7 +22,7 @@ from collections import defaultdict, deque
 
 
 def normalize_pathway_id(pid):
-    """Convert organism-specific KEGG IDs (e.g. rno00010) to KEGG: format (KEGG:00010).
+    """Convert organism-specific KEGG IDs (e.g. hsa00010) to KEGG: format (KEGG:00010).
     GO IDs pass through unchanged."""
     if re.match(r'^[a-z]{3}\d+$', str(pid)):
         return "KEGG:" + pid[3:]
@@ -63,9 +63,9 @@ COMP_SEP      = 1.60           # x-position of the dashed divider between compar
 DIRECTION_COL_POS   = [1.30, 3.20]   # x-position of the "n↓ n↑" text column of each comparison
 DIRECTION_COL_LABEL = "Tissue-level DAPs\n↓ down / ↑ up"
 
-# org.Rn.eg.db, the gene annotation used by pathway_enrichment.R. KEGG terms list Entrez IDs
+# org.Hs.eg.db, the gene annotation used by pathway_enrichment.R. KEGG terms list Entrez IDs
 # in their geneID column (GO terms list gene symbols); this maps them back to gene symbols.
-ORG_DB_PATH      = glob.glob("renv/library/**/org.Rn.eg.sqlite", recursive=True)[0]
+ORG_DB_PATH      = glob.glob("renv/library/**/org.Hs.eg.sqlite", recursive=True)[0]
 ENTREZ_TO_SYMBOL = dict(sqlite3.connect(ORG_DB_PATH).execute(
     "SELECT gene_id, symbol FROM genes JOIN gene_info USING (_id)"))
 
@@ -125,7 +125,7 @@ def parse_go_depths(obo_path: str) -> dict:
 # ── data loading ──────────────────────────────────────────────────────────────
 
 def entrez_ids_to_symbols(gene_list: str) -> str:
-    """"24189/24333" → "Aldoa/Tpm1". Gene symbols (as listed by GO terms) pass through unchanged."""
+    """"226/7168" → "ALDOA/TPM1". Gene symbols (as listed by GO terms) pass through unchanged."""
     return "/".join(ENTREZ_TO_SYMBOL.get(gene, gene) for gene in gene_list.split("/"))
 
 
@@ -180,7 +180,7 @@ def tissue_level_daps_in_term(data: pd.DataFrame, term_id: str, comparison: str)
     term_rows = data[(data["ID"] == term_id) & (data["Comparison"] == comparison)
                      & (data["Set"] == "set1_tissue_level")]
     genes = set()
-    for gene_list in term_rows["geneID"]:   # at most one row, e.g. "Gstm2/Aldoa/Tpm1/…"
+    for gene_list in term_rows["geneID"]:   # at most one row, e.g. "GSTM2/ALDOA/TPM1/…"
         genes.update(gene_list.split("/"))
     return genes
 
@@ -464,13 +464,16 @@ if __name__ == "__main__":
 
             data = load_all(go_depths, base)
 
-            # direction of each tissue-level DAP: {comparison: {gene symbol: "Down Regulated" / "Up Regulated"}}
+            # direction of each tissue-level DAP: {comparison: {human gene symbol: "Down Regulated" / "Up Regulated"}};
+            # one symbol per protein group, the alphabetically first ortholog as in pathway_enrichment.R
             validated_daps = pd.read_csv(os.path.join("valid_DEPs", f"FC{fc}_Stab{stab}", "validated_DEPs.csv"))
+            validated_daps = validated_daps.dropna(subset=["Orthologs"])
+            validated_daps["Symbol"] = validated_daps["Orthologs"].map(lambda orthologs: sorted(orthologs.split(";"))[0])
             direction_of_gene = {}
             for comparison, daps in validated_daps.groupby("Comparison"):
-                # a gene with several protein groups (e.g. Tnnt3) must have one direction
-                assert (daps.groupby("Gene.Names")["Direction"].nunique() == 1).all()
-                direction_of_gene[comparison] = dict(zip(daps["Gene.Names"], daps["Direction"]))
+                # a gene with several protein groups (e.g. TNNT3) must have one direction
+                assert (daps.groupby("Symbol")["Direction"].nunique() == 1).all()
+                direction_of_gene[comparison] = dict(zip(daps["Symbol"], daps["Direction"]))
 
             print("Selecting top shared pathways …")
             dot_df = build_dot_df(data, bone_ids, direction_of_gene)
