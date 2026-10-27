@@ -3,7 +3,8 @@ Dotplot of top enriched pathways per protein set and comparison.
 
 Rows = union of top-10 pathways (significant in ALL 3 protein sets) per comparison,
 sorted by mean −log10(p.adj) across the six cells. Columns = 3 protein sets × 2 comparisons.
-Dot size = −log10(p.adj); grey dot = not significant. The "n↓ n↑" column of each comparison counts
+Dot size = −log10(p.adj); grey dot = not significant in that protein set (BH adj. p ≥ 0.05; this includes
+terms not returned for the set because none of its genes is annotated to them). The "n↓ n↑" column of each comparison counts
 the down-/upregulated tissue-level DAPs annotated to the term (direction from validated_DEPs.csv).
 GO depths downloaded once from go-basic.obo and cached at ~/.cache/go-basic.obo.
 """
@@ -51,6 +52,8 @@ BONE_FILE = "input/bone_enrichments_meta_analysis.csv"
 CAT_COLORS  = {"BP": "#0072B2", "MF": "#E69F00", "CC": "#56B4E9", "KEGG": "#D55E00"}
 CAT_ORDER   = ["BP", "MF", "CC", "KEGG"]
 CAT_LABELS  = {"BP": "GO:BP", "MF": "GO:MF", "CC": "GO:CC", "KEGG": "KEGG"}  # legend display names
+NS_DOT_SIZE  = 16      # scatter size of the grey "not significant" dot
+NS_DOT_COLOR = "0.87"
 BONE_STAR  = " ★"  # appended to pathway labels that are in the bone-regeneration reference
 
 # 6 dot columns: 3 sets × 2 comparisons, each comparison followed by a text column with the
@@ -359,7 +362,7 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
         for xi, col in zip(COL_POS, val_cols):
             v = row[col]
             if np.isnan(v):
-                ax.scatter(xi, ri, s=16, color="0.87", zorder=2, linewidths=0)
+                ax.scatter(xi, ri, s=NS_DOT_SIZE, color=NS_DOT_COLOR, zorder=2, linewidths=0)
             else:
                 ax.scatter(xi, ri, s=(v / max_val) * 150 + 11,
                            color=color, alpha=0.88, zorder=3, linewidths=0)
@@ -414,7 +417,10 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
     _centers = [_TITLE_H_PT + _radii[0]]
     for _i in range(1, len(_radii)):
         _centers.append(_centers[-1] + _radii[_i - 1] + _EDGE_GAP_PT + _radii[_i])
-    _total_h_pt = _centers[-1] + _radii[-1] + 4  # 4 pt bottom padding
+    # grey "not significant" entry: its two-line label needs more room than the dot itself
+    _NS_HALF_H_PT = 8
+    _ns_center = _centers[-1] + _radii[-1] + _EDGE_GAP_PT + _NS_HALF_H_PT
+    _total_h_pt = _ns_center + _NS_HALF_H_PT + 4  # 4 pt bottom padding
 
     # Size the inset so that 1 axes unit == 1 display point → scatter s is correct
     _fh_in = fig.get_figheight()
@@ -430,6 +436,10 @@ def make_dotplot_figure(dot_df: pd.DataFrame) -> plt.Figure:
         _size_ax.scatter([0.22], [_c], s=_s, color="0.55",
                          zorder=3, linewidths=0, clip_on=False)
         _size_ax.text(0.44, _c, _lbl, fontsize=6, va="center", ha="left")
+    _size_ax.scatter([0.22], [_ns_center], s=NS_DOT_SIZE, color=NS_DOT_COLOR,
+                     zorder=3, linewidths=0, clip_on=False)
+    _size_ax.text(0.44, _ns_center, "not significant\n(adj. p ≥ 0.05)",
+                  fontsize=6, va="center", ha="left", linespacing=1.1)
 
     fig.text(0.81, 0.24, "★ Bone-regeneration\nreference\npathway",
              fontsize=6.5, fontweight="bold", va="top", ha="left", color="0.35",
