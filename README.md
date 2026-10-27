@@ -28,6 +28,7 @@ The unprocessed proteomics data is not provided in this repository.
    - `enriched_pathway_overlap_with_bone_pathways.py`: overlap of the enriched terms with the bone-regeneration reference pathways (Figure 7, Supplementary Table S6)
    - `figure_pathway_hierarchy.py`: top enriched terms per protein set and comparison (Figure 8)
 8. `drug_repurposing.py`: drug candidates by TrustRank on the NeDRex network (Drugst.One, Supplementary Table S7).
+   - `figure_drug_repurposing.py`: scatter plot of all drug candidates (Supplementary Table S7), mean TrustRank score in the empty defect vs. with the PCL scaffold, with the top three drugs of each comparison labelled by name (drugs tied with the third included); drugs with identical scores stack on one marker (`valid_DEPs/FC*/drug_repurposing/drug_candidates_scatter.png`)
 9. `supplements/export_*.py`: Supplementary Tables S1, S2, S3 and S5. All supplementary tables are written to `supplements/` under their paper names (`Supplementary_Table_S1.xlsx` to `Supplementary_Table_S7.xlsx`); `supplements/Supplementary_Figure_S1.png` is the captioned version of `valid_DEPs/FC_distribution.png`.
 
 The main results of the paper use the AR threshold 5.59 (80th percentile of the background abundance-ratio distribution) and ΔAR 1.2.
