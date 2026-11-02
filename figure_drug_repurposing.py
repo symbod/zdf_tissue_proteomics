@@ -9,7 +9,7 @@ computed from the per-run tables with a run that does not return the drug counte
 scores (drugs that bind the same target proteins) stack on one marker; the marker faces are translucent, so a
 stack is darker than a single drug. Labelled by name are the top TOP_N drugs of each comparison, drugs tied with
 the TOP_N-th included (like the union of the top-10 terms in figure_pathway_hierarchy.py); a stack of more than
-MAX_NAMES_INLINE drugs is labelled by its count, and labelled markers that touch share one label.
+MAX_NAMES_INLINE drugs is not labelled (its names would not fit), and labelled markers that touch share one label.
 Reads the drug_repurposing/ outputs of drug_repurposing.py for every threshold combination.
 """
 
@@ -32,7 +32,7 @@ COMP_LBLS = ["Empty defect", "PCL scaffold"]
 SETS = ["set1_tissue_level", "set2_tissue_plus_network", "set3_first_level"]
 
 TOP_N = 3              # drugs labelled per comparison (ranked by mean score; drugs tied with the TOP_N-th are included)
-MAX_NAMES_INLINE = 4   # a stack of more drugs with identical scores is labelled by its count
+MAX_NAMES_INLINE = 4   # a stack of more drugs with identical scores is not labelled (the names would not fit)
 LABEL_WRAP = 54        # characters per label line
 LABEL_GAP = 5.5        # distance between a marker centre and its label (pt)
 LABEL_PAD = 1.2        # clearance between a label and markers or other labels (pt)
@@ -82,19 +82,18 @@ def drug_table(drug_dir: str) -> pd.DataFrame:
 
 def marker_table(table: pd.DataFrame) -> pd.DataFrame:
     """One row per marker, i.e. per distinct coordinate (scores rounded to 4 decimals): x, y, drugs (names,
-    alphabetical) and labelled; ordered from the bottom up and, at equal height, from the right."""
+    alphabetical) and labelled (a labelled drug on a stack of at most MAX_NAMES_INLINE drugs); ordered from the
+    bottom up and, at equal height, from the right."""
     table = table.assign(x=table[f"score_{COMP_LBLS[0]}"].round(4), y=table[f"score_{COMP_LBLS[1]}"].round(4))
     markers = table.groupby(["x", "y"], as_index=False).agg(
         drugs=("Drug", lambda names: sorted(names, key=str.lower)), labelled=("labelled", "any"))
+    markers["labelled"] &= markers["drugs"].str.len() <= MAX_NAMES_INLINE
     return markers.sort_values(["y", "x"], ascending=[True, False]).reset_index(drop=True)
 
 
 def label_text(marker: pd.Series) -> str:
-    """The drug names of the marker ("Bortezomib, Quercetin") or the count of a large stack ("29 drugs"); a name is
-    never broken across lines."""
+    """The drug names of the marker ("Bortezomib, Quercetin"); a name is never broken across lines."""
     names = marker["drugs"]
-    if len(names) > MAX_NAMES_INLINE:
-        return f"{len(names)} drugs"
     return textwrap.fill(", ".join(name.replace(" ", " ") for name in names), width=LABEL_WRAP)
 
 
