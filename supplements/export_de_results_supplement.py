@@ -29,7 +29,7 @@ README = pd.DataFrame([
     ("Column name", "Description"),
     ("Protein.IDs", "UniProt accessions."),
     ("Gene.Names",  "Gene symbols."),
-    ("logFC",       "Log2 fold change (diabetic / non-diabetic)."),
+    ("logFC",       "Log2 fold change: sham-corrected contrast (diabetic defect − diabetic sham) − (non-diabetic defect − non-diabetic sham) of the group means of the normalized log2 abundances."),
     ("P.Value",     "Unadjusted p-value."),
     ("adj.P.Val",   "Benjamini-Hochberg adjusted p-value."),
     ("Change",      "Up / Down / No Change."),
