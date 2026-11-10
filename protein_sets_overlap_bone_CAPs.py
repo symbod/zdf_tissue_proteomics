@@ -300,8 +300,6 @@ for fc in FC_THRESHOLDS:
                    handlelength=1.2, handletextpad=0.5, columnspacing=1.2,
                    title="Comparison",
                    title_fontproperties={"weight": "bold", "size": 10})
-        fig.text(0.53, -0.03, "Numbers: overlap with the reference / set size",
-                 ha="center", va="top", fontsize=8, color=LINE_COLOR)
 
         # ── Save ──────────────────────────────────────────────────────────────
 
