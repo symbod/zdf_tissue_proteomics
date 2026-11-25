@@ -7,7 +7,7 @@ from scipy.stats import hypergeom
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 NET_DIR         = "network_enrichment_results"
 
@@ -43,6 +43,24 @@ def human_orthologs(ortholog_strings):
     for s in pd.Series(ortholog_strings).dropna().astype(str):
         out |= {g.strip().upper() for g in s.split(";") if g.strip()}
     return out
+
+def overlapping_proteins_text(dap_orthologs, connector_genes=()):
+    """Reference proteins among a set of DAPs (and connectors), as text for the supplement.
+    A reference protein that several protein groups (variants) map to is named once, with their number."""
+    protein_groups_of = {}
+    for orthologs in pd.Series(dap_orthologs).dropna().astype(str):
+        for gene in human_orthologs([orthologs]) & bone_caps:
+            protein_groups_of[gene] = protein_groups_of.get(gene, 0) + 1
+    for gene in set(connector_genes) & bone_caps:
+        protein_groups_of.setdefault(gene, 1)
+
+    entries = []
+    for gene in sorted(protein_groups_of):
+        if protein_groups_of[gene] > 1:
+            entries.append(f"{gene} ({protein_groups_of[gene]} variants)")
+        else:
+            entries.append(gene)
+    return "; ".join(entries)
 
 # Collect results for supplement export
 _results = []
@@ -136,8 +154,11 @@ for fc in FC_THRESHOLDS:
             protein_counts[comp_label] = [(o3, s3), (o1, s1), (o2, s2)]
 
             # Same sets by name; their overlap with the reference proteins is listed in the supplement
-            gene_set_of = {"First-level DAPs": first_lvl, "Tissue-level DAPs": tissue_lvl,
-                           "Tissue-level DAPs + connector proteins": tissue_lvl | exc_prots}
+            overlapping_proteins_of = {
+                "First-level DAPs":  overlapping_proteins_text(cd.loc[first_mask, "Orthologs"]),
+                "Tissue-level DAPs": overlapping_proteins_text(cd["Orthologs"]),
+                "Tissue-level DAPs + connector proteins": overlapping_proteins_text(cd["Orthologs"], exc_prots),
+            }
 
             for set_label, pop, succ, s, o, p in [
                 ("Tissue-level DAPs",                     M,  n,  s1, o1, p1),
@@ -156,7 +177,7 @@ for fc in FC_THRESHOLDS:
                     "Bone-regeneration reference protein overlap (k)":    o,
                     "Expected overlap":         expected,
                     "p-value":                  p,
-                    "Overlapping proteins":     "; ".join(sorted(gene_set_of[set_label] & bone_caps)),
+                    "Overlapping proteins":     overlapping_proteins_of[set_label],
                 })
 
             print(f"\n{comp_label}:  population M={M} (successes n={n})")
@@ -342,7 +363,7 @@ README = pd.DataFrame([
     ("p-value | Tissue-level DAPs",                    "Hypergeometric p-value, tissue-level DAPs."),
     ("p-value | Tissue-level DAPs + connector proteins","Hypergeometric p-value, tissue-level DAPs + connectors."),
     ("p-value | First-level DAPs",                     "Hypergeometric p-value, first-level DAPs."),
-    ("Overlapping proteins | Tissue-level DAPs",                    "Bone-regeneration reference proteins (human gene symbols) among the tissue-level DAPs. k counts protein groups, so two protein groups of the same reference protein are listed once."),
+    ("Overlapping proteins | Tissue-level DAPs",                    "Bone-regeneration reference proteins (human gene symbols) among the tissue-level DAPs. k counts the quantified proteins; a reference protein of which several variants were quantified separately is listed once, with the number of variants in brackets."),
     ("Overlapping proteins | Tissue-level DAPs + connector proteins","Bone-regeneration reference proteins among the tissue-level DAPs + connectors."),
     ("Overlapping proteins | First-level DAPs",                     "Bone-regeneration reference proteins among the first-level DAPs."),
 ], columns=["_", "__"])

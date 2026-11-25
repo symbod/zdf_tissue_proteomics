@@ -16,7 +16,7 @@ def normalize_pathway_id(pid):
 
 # ── Config ────────────────────────────────────────────────────────────────────
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 BASE_DIR  = "valid_DEPs"
 BONE_FILE = "input/bone_enrichments_meta_analysis.csv"

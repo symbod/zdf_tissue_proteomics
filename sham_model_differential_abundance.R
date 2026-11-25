@@ -19,6 +19,7 @@
 #         normalization_robustness_jaccard.csv: agreement of the DAP sets with those of the LoessF
 #         normalization (the test is repeated on the LoessF data; only this table is kept of it).
 
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 suppressMessages({library(limma); library(data.table)})
 
 MIN_SAMPLES_PER_GROUP <- 3      # as in the previous pipeline

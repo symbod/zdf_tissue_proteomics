@@ -9,6 +9,7 @@
 # (2) <comparison>_enrichment_summary.csv — per-set counts.
 
 # Enrichment Analysis on Validated DAPs
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 library(clusterProfiler)
 library(org.Hs.eg.db)
 library(dplyr)
@@ -26,7 +27,7 @@ citation("org.Hs.eg.db")
 base_output_dir <- "valid_DEPs/"
 
 # Define the threshold combinations to process
-fc_thresholds <- c(4.04, 5.59, 9.32)
+fc_thresholds <- c(4.03, 5.55, 9.15)
 stability_thresholds <- c(1.1, 1.2, 1.3)
 
 # Paths to full DA results for background universe

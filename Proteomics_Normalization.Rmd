@@ -11,25 +11,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-# ── Version check against renv.lock ──────────────────────────────────────────
-# Run renv::restore() if any package version has drifted from the locked state.
-if (file.exists("renv.lock")) {
-  lock <- jsonlite::fromJSON("renv.lock")$Packages
-  key_pkgs <- c("PRONE", "POMA", "limma", "SummarizedExperiment")
-  for (pkg in key_pkgs) {
-    if (!is.null(lock[[pkg]])) {
-      installed <- tryCatch(as.character(packageVersion(pkg)), error = function(e) "NOT INSTALLED")
-      locked    <- lock[[pkg]]$Version
-      if (installed != locked)
-        warning(sprintf("Package %s: installed=%s, locked=%s — run renv::restore() to realign.",
-                        pkg, installed, locked))
-    }
-  }
-}
-
-if (!requireNamespace("BiocManager", quietly = TRUE)) install.packages("BiocManager")
-if (!requireNamespace("PRONE",       quietly = TRUE)) BiocManager::install("PRONE")
-if (!requireNamespace("POMA",        quietly = TRUE)) BiocManager::install("POMA")
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 library("PRONE")
 library("POMA")
 

@@ -29,7 +29,7 @@ def normalize_pathway_id(pid):
         return "KEGG:" + pid[3:]
     return pid
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 
 SETS      = ["set3_first_level", "set1_tissue_level", "set2_tissue_plus_network"]

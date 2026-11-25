@@ -11,9 +11,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
-install.packages("remotes")
-
-remotes::install_github("symbod/proharmed-R")
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 library("proharmed")
 ```
 

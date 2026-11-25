@@ -1,3 +1,5 @@
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
+
 # Load required libraries
 library(ggplot2)
 library(dplyr)

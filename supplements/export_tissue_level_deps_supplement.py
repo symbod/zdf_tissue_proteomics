@@ -11,7 +11,7 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 
 COMPARISONS = {
@@ -23,7 +23,7 @@ OUT_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "Supplementa
 
 README = pd.DataFrame([
     ("Sheet name",           "Content"),
-    ("AR<value> ΔAR<value> <comparison>", "e.g. AR5.59 ΔAR1.2 Empty defect. One sheet per threshold × comparison (18 total)."),
+    ("AR<value> ΔAR<value> <comparison>", "e.g. AR5.55 ΔAR1.2 Empty defect. One sheet per threshold × comparison (18 total)."),
     ("",                     ""),
     ("Threshold",            "Description"),
     ("AR",                   "Abundance ratio threshold: minimum comparison-level abundance ratio between fractions required to qualify a protein as a second-level DAP."),

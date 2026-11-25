@@ -3,7 +3,7 @@
 #
 # QUESTION
 #   The empty-defect comparison (diabetic vs non-diabetic) yields more tissue-level
-#   DAPs than the PCL comparison (76 vs 53). If the scaffold made no difference to
+#   DAPs than the PCL comparison (82 vs 60). If the scaffold made no difference to
 #   how diabetes affects the proteome, how often would an analysis like ours produce
 #   a difference at least this large?
 #
@@ -13,12 +13,13 @@
 #   effect. The sham animals keep their label in every permutation.
 #
 # INPUT   normalization_results_{AI,AS}/RobNorm_normalized_data.csv + meta_data.csv  all 42 animals per fraction
-#         valid_DEPs/FC5.59_Stab1.2/summary_statistics.csv                             self-check only
-# OUTPUT  valid_DEPs/FC5.59_Stab1.2/scaffold_label_permutation_test/
+#         valid_DEPs/FC5.55_Stab1.2/summary_statistics.csv                             self-check only
+# OUTPUT  valid_DEPs/FC5.55_Stab1.2/scaffold_label_permutation_test/
 #         permutations.csv   per permutation: tissue-level DAPs of both comparisons and their difference
 #         summary.csv        observed difference, null distribution and p-value
 # ==============================================================================
 
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 suppressPackageStartupMessages({ library(limma); library(data.table); library(parallel) })
 source("sham_model_differential_abundance.R")   # read_fraction() and fraction_level_test(); its analysis part does not run
 source("tissue_level_rules.R")                  # the validation rules of tissue_level_DEP_collection.R
@@ -26,7 +27,7 @@ source("tissue_level_rules.R")                  # the validation rules of tissue
 N_PERMUTATIONS            <- 1000
 N_CORES                   <- 2
 SEED                      <- 20260916
-ABUNDANCE_RATIO_THRESHOLD <- 5.59     # AR threshold of the canonical tissue-level result (80th percentile of the background)
+ABUNDANCE_RATIO_THRESHOLD <- 5.55     # AR threshold of the canonical tissue-level result (80th percentile of the background)
 STABILITY_THRESHOLD       <- 1.2
 threshold_dir <- sprintf("valid_DEPs/FC%s_Stab%s", ABUNDANCE_RATIO_THRESHOLD, STABILITY_THRESHOLD)
 output_dir    <- file.path(threshold_dir, "scaffold_label_permutation_test")

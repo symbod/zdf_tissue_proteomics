@@ -13,7 +13,7 @@ import pandas as pd
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 
 COMPARISONS = [

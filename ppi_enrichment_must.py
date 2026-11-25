@@ -9,7 +9,7 @@ drugstone.set_api('https://api.stable.drugst.one/')
 drugstone.print_license()
 drugstone.accept_license()
 
-VALIDATED_DEPS = 'valid_DEPs/FC5.59_Stab1.2/validated_DEPs.csv'
+VALIDATED_DEPS = 'valid_DEPs/FC5.55_Stab1.2/validated_DEPs.csv'
 
 COMPARISONS = [
     "diabetic_empty_42-nondiabetic_empty_42",

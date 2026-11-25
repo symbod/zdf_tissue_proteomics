@@ -20,7 +20,7 @@ from matplotlib_venn import venn2
 from matplotlib.transforms import offset_copy
 
 OUT_DIR        = "ai_as_proteome_investigation_results"
-VALIDATION_DIR = "valid_DEPs/FC5.59_Stab1.2"
+VALIDATION_DIR = "valid_DEPs/FC5.55_Stab1.2"
 
 os.makedirs(OUT_DIR, exist_ok=True)
 

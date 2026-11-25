@@ -8,8 +8,11 @@ the comparison (1 = top-ranked drug of a run). In the comparison in which a drug
 computed from the per-run tables with a run that does not return the drug counted as 0. Drugs with identical
 scores (drugs that bind the same target proteins) stack on one marker; the marker faces are translucent, so a
 stack is darker than a single drug. Labelled by name are the top TOP_N drugs of each comparison, drugs tied with
-the TOP_N-th included (like the union of the top-10 terms in figure_pathway_hierarchy.py); a stack of more than
-MAX_NAMES_INLINE drugs is not labelled (its names would not fit), and labelled markers that touch share one label.
+the TOP_N-th included (like the union of the top-10 terms in figure_pathway_hierarchy.py), and the drugs discussed
+in the text of the paper (DRUGS_IN_TEXT), so that every drug of the text can be found in the figure; the label of
+a stack of more than MAX_NAMES_INLINE drugs, whose names would not all fit, names only the drugs discussed in the
+text and gives the number of the others ("... and 29 others"; a stack without such a drug is not labelled), and
+labelled markers that touch share one label.
 Reads the drug_repurposing/ outputs of drug_repurposing.py for every threshold combination.
 """
 
@@ -21,7 +24,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from matplotlib.colors import to_rgba
 
-FC_THRESHOLDS   = [4.04, 5.59, 9.32]
+FC_THRESHOLDS   = [4.03, 5.55, 9.15]
 STAB_THRESHOLDS = [1.1, 1.2, 1.3]
 
 COMP_KEYS = [
@@ -32,7 +35,13 @@ COMP_LBLS = ["Empty defect", "PCL scaffold"]
 SETS = ["set1_tissue_level", "set2_tissue_plus_network", "set3_first_level"]
 
 TOP_N = 3              # drugs labelled per comparison (ranked by mean score; drugs tied with the TOP_N-th are included)
-MAX_NAMES_INLINE = 4   # a stack of more drugs with identical scores is not labelled (the names would not fit)
+# Drugs discussed in the text of the paper (Section 3.5), labelled whatever their rank; names as in the Drug column
+# of the drug_repurposing/ tables.
+DRUGS_IN_TEXT = [
+    "Formic acid", "Imatinib", "Bortezomib", "Quercetin",
+    "Calcium citrate", "Calcium levulinate", "Calcium Phosphate", "Calcium phosphate dihydrate",
+]
+MAX_NAMES_INLINE = 4   # the label of a stack of more drugs with identical scores names only those of DRUGS_IN_TEXT
 LABEL_WRAP = 54        # characters per label line
 LABEL_GAP = 5.5        # distance between a marker centre and its label (pt)
 LABEL_PAD = 1.2        # clearance between a label and markers or other labels (pt)
@@ -57,7 +66,7 @@ def drug_table(drug_dir: str) -> pd.DataFrame:
               and score_<label>: the "Mean score" of the intersection table written by drug_repurposing.py
               (Supplementary Table S7) where the drug is a candidate, else the same mean over the three runs with a
               run that does not return the drug counted as 0; and labelled: among the top TOP_N candidates of either
-              comparison, drugs tied with the TOP_N-th included.
+              comparison, drugs tied with the TOP_N-th included, or one of DRUGS_IN_TEXT.
     """
     rows = {}
     for comparison, label in zip(COMP_KEYS, COMP_LBLS):
@@ -73,28 +82,42 @@ def drug_table(drug_dir: str) -> pd.DataFrame:
             row.setdefault(f"candidate_{label}", False)
             row.setdefault(f"score_{label}", sum(scores.get(drug, 0.0) for scores in score_in_run) / len(SETS))
     table = pd.DataFrame(rows.values())
-    table["labelled"] = False
+    table["labelled"] = table["Drug"].isin(DRUGS_IN_TEXT)
     for label in COMP_LBLS:
         candidate_scores = table[f"score_{label}"].where(table[f"candidate_{label}"])
         table["labelled"] |= candidate_scores.rank(method="min", ascending=False) <= TOP_N
     return table
 
 
+def names_in_label(drugs: list) -> list:
+    """The names shown for a marker with these drugs: all of them, or, for a stack of more than MAX_NAMES_INLINE
+    drugs (whose names would not all fit), only the drugs discussed in the text."""
+    if len(drugs) <= MAX_NAMES_INLINE:
+        return drugs
+    return [drug for drug in drugs if drug in DRUGS_IN_TEXT]
+
+
 def marker_table(table: pd.DataFrame) -> pd.DataFrame:
     """One row per marker, i.e. per distinct coordinate (scores rounded to 4 decimals): x, y, drugs (names,
-    alphabetical) and labelled (a labelled drug on a stack of at most MAX_NAMES_INLINE drugs); ordered from the
-    bottom up and, at equal height, from the right."""
+    alphabetical), names (the names shown in its label, see names_in_label) and labelled (a labelled drug on the
+    marker and at least one name to show); ordered from the bottom up and, at equal height, from the right."""
     table = table.assign(x=table[f"score_{COMP_LBLS[0]}"].round(4), y=table[f"score_{COMP_LBLS[1]}"].round(4))
     markers = table.groupby(["x", "y"], as_index=False).agg(
         drugs=("Drug", lambda names: sorted(names, key=str.lower)), labelled=("labelled", "any"))
-    markers["labelled"] &= markers["drugs"].str.len() <= MAX_NAMES_INLINE
+    markers["names"] = markers["drugs"].apply(names_in_label)
+    markers["labelled"] &= markers["names"].str.len() > 0
     return markers.sort_values(["y", "x"], ascending=[True, False]).reset_index(drop=True)
 
 
 def label_text(marker: pd.Series) -> str:
-    """The drug names of the marker ("Bortezomib, Quercetin"); a name is never broken across lines."""
-    names = marker["drugs"]
-    return textwrap.fill(", ".join(name.replace(" ", " ") for name in names), width=LABEL_WRAP)
+    """The names shown for the marker ("Bortezomib, Quercetin"), followed by the number of its other drugs if
+    not all are named ("Bortezomib, Quercetin and 29 others"); a name is never broken across lines."""
+    names = marker["names"]
+    text = ", ".join(name.replace(" ", " ") for name in names)
+    others = len(marker["drugs"]) - len(names)
+    if others > 0:
+        text += f" and\u00a0{others}\u00a0" + ("other" if others == 1 else "others")
+    return textwrap.fill(text, width=LABEL_WRAP)
 
 
 # ── labels ────────────────────────────────────────────────────────────────────
@@ -228,10 +251,15 @@ if __name__ == "__main__":
             table = drug_table(drug_dir)
             markers = marker_table(table)
             print("Candidates: " + ", ".join(f"{int(table[f'candidate_{label}'].sum())} {label}" for label in COMP_LBLS)
-                  + f"; {len(markers)} markers, labelled (top {TOP_N} of either comparison, ties included):")
+                  + f"; {len(markers)} markers, labelled (top {TOP_N} of either comparison, ties included, and the"
+                  + " drugs discussed in the text):")
             for _, marker in markers[markers["labelled"]].iterrows():
                 print(f"  x={marker['x']:.3f} y={marker['y']:.3f} n={len(marker['drugs']):>2}  "
                       + " ".join(label_text(marker).split()))
+            not_candidates = [drug for drug in DRUGS_IN_TEXT if drug not in set(table["Drug"])]
+            if not_candidates:
+                print("  WARNING: in DRUGS_IN_TEXT but not a candidate at these thresholds: "
+                      + ", ".join(not_candidates))
 
             out = os.path.join(drug_dir, "drug_candidates_scatter.png")
             make_figure(table, markers).savefig(out, dpi=300, bbox_inches="tight", pad_inches=0.05)

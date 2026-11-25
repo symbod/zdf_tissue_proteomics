@@ -8,14 +8,15 @@
 # shuffle and comparison.
 #
 # Input : normalization_results_{AI,AS}/RobNorm_normalized_data.csv + meta_data.csv
-#         valid_DEPs/FC5.59_Stab1.2/summary_statistics.csv (self-check only)
-# Output: valid_DEPs/FC5.59_Stab1.2/tissue_level_permutation_check/
+#         valid_DEPs/FC5.55_Stab1.2/summary_statistics.csv (self-check only)
+# Output: valid_DEPs/FC5.55_Stab1.2/tissue_level_permutation_check/
 #         permutations.csv  counts per shuffle and comparison: fraction-level DAPs (AI, AS) and
 #                           tissue-level DAPs by rule (both fractions, exclusive, second level)
 #         summary.csv       observed count of tissue-level DAPs, null distribution and share of
 #                           shuffles with at least the observed count
 # Runtime: about 15 min on 4 cores (1000 shuffles).
 
+source("check_package_versions.R")   # stops unless R and the packages match renv.lock
 suppressPackageStartupMessages({ library(limma); library(data.table); library(parallel) })
 source("sham_model_differential_abundance.R")   # read_fraction() and fraction_level_test(); its analysis part does not run
 source("tissue_level_rules.R")                  # the validation rules of tissue_level_DEP_collection.R
@@ -23,7 +24,7 @@ source("tissue_level_rules.R")                  # the validation rules of tissue
 N_SHUFFLES                <- 1000
 N_CORES                   <- 4
 SEED                      <- 1
-ABUNDANCE_RATIO_THRESHOLD <- 5.59     # canonical thresholds of tissue_level_DEP_collection.R
+ABUNDANCE_RATIO_THRESHOLD <- 5.55     # canonical thresholds of tissue_level_DEP_collection.R
 STABILITY_THRESHOLD       <- 1.2
 threshold_dir <- sprintf("valid_DEPs/FC%s_Stab%s", ABUNDANCE_RATIO_THRESHOLD, STABILITY_THRESHOLD)
 output_dir    <- file.path(threshold_dir, "tissue_level_permutation_check")
