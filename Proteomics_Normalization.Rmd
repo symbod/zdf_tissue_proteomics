@@ -464,13 +464,4 @@ outliers_result_robnorm <- POMA::PomaOutliers(se_robnorm_only,
 print(outliers_result_robnorm$distance_boxplot)
 outlier_samples_robnorm <- outliers_result_robnorm$outliers
 print(outlier_samples_robnorm)
-
-outliers_result_robnorm <- POMA::PomaOutliers(se_robnorm_only,
-                                      method = "euclidean", 
-                                      outcome = "Scaffold",
-                                      labels = FALSE)
-
-print(outliers_result_robnorm$distance_boxplot)
-outlier_samples_robnorm <- outliers_result_robnorm$outliers
-print(outlier_samples_robnorm)
 ```

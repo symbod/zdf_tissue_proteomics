@@ -36,7 +36,7 @@ SET_SCORE_LABELS = {
 PARAMETERS = {
     "target": "drug",
     "algorithm": "trustrank",
-    "ppi_dataset": "nedrex",
+    "ppiDataset": "nedrex",
     "damping_factor": 0.85,
     "includeIndirectDrugs": False,
     "includeNonApprovedDrugs": True,
@@ -234,7 +234,7 @@ if _supplement_rows:
         ("ΔAR",                                "Stability threshold: the largest fold by which a change in fraction distribution may contribute to the sham-corrected fraction-level effect of a second-level DAP (share contrast; see the tissue-level DAPs supplement)."),
         ("Drug",                               "Drug name."),
         ("DrugBank_ID",                        "DrugBank identifier."),
-        ("Status",                             "Approval status (e.g. approved, investigational)."),
+        ("Status",                             "Approval status in Drugst.One (approved; empty if none is recorded)."),
         ("Score (tissue-level DAPs)",          "TrustRank score using tissue-level DAPs as seeds."),
         ("Score (tissue-level DAPs + connectors)", "TrustRank score using tissue-level DAPs + network connectors as seeds."),
         ("Score (first-level DAPs)",           "TrustRank score using first-level DAPs only as seeds."),

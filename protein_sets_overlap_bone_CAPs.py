@@ -79,7 +79,7 @@ for fc in FC_THRESHOLDS:
 
         # Reads:
         #   - summary_statistics.csv  → tissue-level / first-level counts and overlaps
-        #   - validated_DEPs.csv      → per-protein gene sets for the "shared" bars
+        #   - validated_DEPs.csv      → the DAPs of each comparison for the "shared" bars
         #   - DA results              → total tested proteome size per comparison
         #   - exception_proteins.csv  → connector proteins from both-levels network enrichment
         #   - bone_caps_meta_analysis → reference gene list for hypergeometric test
@@ -90,7 +90,7 @@ for fc in FC_THRESHOLDS:
         protein_pvals  = {}
         protein_counts = {}   # (overlap, set size) per set, shown as labels in panel (b)
         valid_deps    = pd.read_csv(os.path.join(THRESH_DIR, "validated_DEPs.csv"))
-        _gene_sets    = {}
+        _daps         = {}   # per comparison: first-level DAPs, tissue-level DAPs, connector proteins
         _tested       = {}
 
         for comp_key, comp_label in COMPARISONS.items():
@@ -141,13 +141,8 @@ for fc in FC_THRESHOLDS:
             assert len(cd) == s1, (
                 f"{comp_key}: tissue-level DAP count mismatch — file={len(cd)}, summary={s1}"
             )
-            # Cross-comparison "shared" bars are computed on human gene symbols so
-            # that DAPs (measured as rat proteins) and connectors (human interactome
-            # genes) live in one namespace; upper-casing the rat symbols instead
-            # would match the two only by spelling coincidence.
-            first_lvl  = human_orthologs(cd.loc[first_mask, "Orthologs"])
-            tissue_lvl = human_orthologs(cd["Orthologs"])
-            _gene_sets[comp_key] = [first_lvl, tissue_lvl, tissue_lvl | exc_prots]
+            # Kept for the cross-comparison "shared" bars
+            _daps[comp_key] = (cd[first_mask], cd, exc_prots)
 
             PROTEIN_N[comp_label]      = [s3, s1, s2]
             protein_pvals[comp_label]  = [p3, p1, p2]
@@ -187,12 +182,19 @@ for fc in FC_THRESHOLDS:
             print(f"  First-level DAPs only              N={s3:>4}  overlap={o3:>3}  p={p3:.3e}")
 
         # ── Shared proteins (intersection between comparisons) ────────────────
+        # Counted like the sets above: DAPs as protein groups (Protein.IDs) and
+        # connectors as proteins of the human interactome. A connector of one
+        # comparison that is a human ortholog of a tissue-level DAP of the other
+        # comparison is the same protein and therefore in both sets as well.
 
         comp_keys = list(COMPARISONS.keys())
-        PROTEIN_N["Shared"] = [
-            len(_gene_sets[comp_keys[0]][i] & _gene_sets[comp_keys[1]][i])
-            for i in range(3)
-        ]
+        first_a, tissue_a, connectors_a = _daps[comp_keys[0]]
+        first_b, tissue_b, connectors_b = _daps[comp_keys[1]]
+        shared_first      = first_a[first_a["Protein.IDs"].isin(first_b["Protein.IDs"])]
+        shared_tissue     = tissue_a[tissue_a["Protein.IDs"].isin(tissue_b["Protein.IDs"])]
+        shared_connectors = ((connectors_a & connectors_b)
+                             | (connectors_a & human_orthologs(tissue_b["Orthologs"]))
+                             | (connectors_b & human_orthologs(tissue_a["Orthologs"])))
 
         # Overlap significance of the shared sets. The population is the proteins
         # tested in both comparisons, counted as above (M = distinct Protein.IDs,
@@ -204,17 +206,23 @@ for fc in FC_THRESHOLDS:
         n_shared    = int(tested_both["Orthologs"].dropna().map(
             lambda o: any(g.strip().upper() in bone_caps for g in o.split(";"))).sum())
         genes_both  = human_orthologs(tested_both["Orthologs"])
+        PROTEIN_N["Shared"]      = []
         protein_pvals["Shared"]  = []
         protein_counts["Shared"] = []
-        for i, set_label in enumerate(["First-level DAPs", "Tissue-level DAPs",
-                                       "Tissue-level DAPs + connector proteins"]):
-            shared    = _gene_sets[comp_keys[0]][i] & _gene_sets[comp_keys[1]][i]
-            new_conn  = shared - genes_both   # only connectors can be missing from the tested proteome
+        for set_label, shared_daps, connectors in [
+            ("First-level DAPs",                       shared_first,  set()),
+            ("Tissue-level DAPs",                      shared_tissue, set()),
+            ("Tissue-level DAPs + connector proteins", shared_tissue, shared_connectors),
+        ]:
+            N         = len(shared_daps) + len(connectors)
+            new_conn  = connectors - genes_both   # connectors that are not part of the tested proteome
             pop, succ = M_shared + len(new_conn), n_shared + len(new_conn & bone_caps)
-            o = len(shared & bone_caps)
-            p = hypergeom.sf(o - 1, pop, succ, len(shared))
+            reference_daps = [orthologs for orthologs in shared_daps["Orthologs"] if human_orthologs([orthologs]) & bone_caps]
+            o = len(reference_daps) + len(connectors & bone_caps)
+            p = hypergeom.sf(o - 1, pop, succ, N)
+            PROTEIN_N["Shared"].append(N)
             protein_pvals["Shared"].append(p)
-            protein_counts["Shared"].append((o, len(shared)))
+            protein_counts["Shared"].append((o, N))
             _results.append({
                 "AR threshold":             fc,
                 "ΔAR":                      stab,
@@ -222,11 +230,11 @@ for fc in FC_THRESHOLDS:
                 "Protein set":              set_label,
                 "Proteome size (M)":        pop,
                 "Bone-regeneration reference proteins in proteome (n)": succ,
-                "Protein set size (N)":     len(shared),
+                "Protein set size (N)":     N,
                 "Bone-regeneration reference protein overlap (k)":    o,
-                "Expected overlap":         round((len(shared) * succ) / pop, 2) if pop > 0 else 0,
+                "Expected overlap":         round((N * succ) / pop, 2) if pop > 0 else 0,
                 "p-value":                  p,
-                "Overlapping proteins":     "; ".join(sorted(shared & bone_caps)),
+                "Overlapping proteins":     overlapping_proteins_text(shared_daps["Orthologs"], connectors),
             })
         print(f"\nShared:  population M={M_shared} (successes n={n_shared})  "
               f"N={PROTEIN_N['Shared']}  p={['%.3e' % p for p in protein_pvals['Shared']]}")
