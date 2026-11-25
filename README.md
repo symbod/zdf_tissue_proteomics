@@ -4,18 +4,23 @@ Bone tissue from diabetic and non-diabetic rats with an empty bone defect or a p
 
 ## Input (`input/`)
 
-The unprocessed proteomics data is not provided in this repository.
+The input files are not provided in this repository. The scripts expect in `input/`:
+
+- `report.pg_matrix.tsv`: DIA-NN protein group matrix with only the 84 runs of this study
+- `SampleDescription.csv`: sample annotation
+- `bone_caps_meta_analysis.csv` and `bone_enrichments_meta_analysis.csv`: bone-regeneration reference proteins and pathways
 
 ## Setup
 
-- R 4.6 and the R packages at the versions listed in `renv.lock` (Bioconductor 3.23, `proharmed` from GitHub), for example via `renv::restore()`.
+- R 4.6.1 and the R packages at the versions listed in `renv.lock` (Bioconductor 3.23, `proharmed` from GitHub): start R in the repository folder and run `renv::restore()`. The R scripts and notebooks first compare the installed versions with `renv.lock` (`check_package_versions.R`) and stop if R or a package differs. If they report S4Arrays 1.12.1 after the first `renv::restore()` (renv replaces the recorded 1.12.0), run `renv::restore()` a second time.
 - Python 3.11: `pip install pandas==2.3.1 numpy==2.3.1 scipy==1.17.0 matplotlib==3.10.3 matplotlib-venn==1.1.2 openpyxl==3.1.5 drugstone==1.0.2`.
+- Step 1 calls the Python package `proharmed` (0.0.6, under Python 3.12) through reticulate: set `RETICULATE_PYTHON` to a Python that has it, for example in `.Renviron`.
 - Steps 1, 5, 6 and 8 query online databases (UniProt and gProfiler via proharmed, Drugst.One, KEGG) and step 7 the GO ontology. Results of these steps can drift as the databases are updated; the numbers reported in the paper are preserved in its supplementary tables.
 
 ## Pipeline
 
 1. `Proteomics_Harmonization.Rmd`: filters the protein IDs to rat and maps them to gene names and human orthologs (proharmed).
-2. `Proteomics_Normalization.Rmd`: per fraction, RobNorm normalization and outlier detection (PRONE, POMA).
+2. `Proteomics_Normalization.Rmd`: per fraction, RobNorm normalization and outlier detection (PRONE, POMA); run it once with `fraction_to_keep <- "AI"` and once with `"AS"`.
 3. `sham_model_differential_abundance.R`: per fraction, differential abundance with limma using all six groups (genotype × sham / empty / PCL). The diabetic effect is the sham-baseline-corrected contrast (diabetic defect − diabetic sham) − (non-diabetic defect − non-diabetic sham); significance at the fraction level is nominal (p < 0.05, |log2FC| ≥ 1). As a robustness check, the script repeats the test on the LoessF-normalized data and reports the agreement of the DAP sets (Jaccard index); only the RobNorm results are used downstream.
 4. `tissue_level_DEP_collection.R`: consolidates the fraction-specific DAPs into first-level and second-level tissue-level DAPs for all combinations of the AR and ΔAR thresholds (Supplementary Figure S1). The validation rules are implemented once, in `tissue_level_rules.R`, which this script and both permutation tests use. Since the sham model, the rules look at the samples of the four groups of the sham-corrected contrast (defect and sham animals of both genotypes): exclusivity and dominance are judged over all of them, and the stability criterion of the second level is the sham-corrected contrast applied to the log2 share of the protein in the fraction where it is a DAP, i.e. the part of the fraction-level effect attributable to a change in fraction distribution, which must not exceed the ΔAR threshold (1.2-fold). `tissue_level_permutation_check.R` estimates how many tissue-level DAPs are expected by chance (genotype labels shuffled per animal, same shuffle for both fractions).
 5. `ppi_enrichment_must.py`: connector proteins that link the tissue-level DAPs in the human PPI network (Drugst.One, Multi-Steiner tree).
